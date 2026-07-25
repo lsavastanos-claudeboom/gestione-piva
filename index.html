@@ -498,6 +498,21 @@ function bonusPots(){
   pots.forEach(p=>p.saldo=p.iniziale+p.accrediti-p.prelievi);
   return pots;
 }
+function monteStoricoFineMese(){
+  const w=W();const y=w.anno;const iniDa=w.bonusIniData||'';const riserva=+w.bonusProgressivo||0;
+  const fat=fattureAnno();
+  const prelMonte=prelieviAnno().filter(p=>p.pot==='fatture'||p.pot==='iniziale');
+  const now=new Date();
+  const curM=(y>now.getFullYear())?1:(y<now.getFullYear()?12:now.getMonth()+1);
+  const out=[];
+  for(let m=curM;m<=12;m++){
+    const end=y+'-'+String(m).padStart(2,'0')+'-31';
+    const accr=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'')<=end)?(f.bonus||0):0),0);
+    const prel=prelMonte.reduce((s,p)=>s+(((p.data||'')<=end)?p.importo:0),0);
+    out.push({mese:y+'-'+String(m).padStart(2,'0'),label:MESI[m-1],monte:riserva+accr-prel,futuro:(y===now.getFullYear()&&m>now.getMonth()+1)||(y>now.getFullYear())});
+  }
+  return out;
+}
 
 /* ============ DASHBOARD ============ */
 function statoMeseBodyHTML(mese){
@@ -889,6 +904,7 @@ function renderBonus(el){
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
   const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
   const monthlyIds=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').map(x=>x.id);const firstMonthly=monthlyIds[0]||'';
+  const storico=monteStoricoFineMese();
   const freeze=Math.min(Math.max(0,w.bonusFreeze||0),Math.max(0,potFat.saldo));
   el.innerHTML=`
   ${pageHead('Bonus','Il tuo monte bonus e la proiezione di quanto puoi spendere')}
@@ -923,14 +939,13 @@ function renderBonus(el){
       <td class="num" data-label="Saldo"><b style="color:${p.saldo<0?'var(--red)':'var(--violet)'}">${eur(p.saldo)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
-  <div class="card"><h3>📆 Bonus mensili — calendario</h3><div class="desc">Ogni mese vale ${eur(mensile)} (tipo 1 + tipo 2). I mesi futuri sono già valorizzati: puoi registrare spese in anticipo con "+ spesa". Residuo in rosso = speso più del disponibile del mese.</div>
-    <table class="rtable"><thead><tr><th>Mese</th><th class="num">Disponibile</th><th class="num">Speso</th><th class="num">Residuo</th><th></th></tr></thead><tbody>
-    ${mesiBonusList().map(k=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.mese===k&&monthlyIds.includes(pr.pot)).reduce((s,pr)=>s+pr.importo,0);const res=mensile-sp;return `<tr>
-      <td data-label="Mese"><b>${monthLabel(k)}</b></td>
-      <td class="num" data-label="Disponibile">${eur(mensile)}</td>
-      <td class="num" data-label="Speso" style="color:var(--muted)">${sp?('−'+eur(sp)):eur(0)}</td>
-      <td class="num" data-label="Residuo" style="color:${res<0?'var(--red)':'var(--green)'}">${eur(res)}</td>
-      <td data-label=""><button class="mini-btn" onclick="openPrelievoBonus('${firstMonthly}','${k}')">+ spesa</button></td></tr>`;}).join('')}
+  <div class="card"><div class="card-head"><h3>📈 Storico monte a fine mese</h3></div>
+    <div class="desc">Il totale bonus disponibile (il monte) a fine di ogni mese, da adesso in avanti. Sale con le fatture che emetti e scende con gli utilizzi che registri. I mesi ancora da venire mostrano il valore previsto in base ai dati inseriti finora.</div>
+    ${storico.length?svgBars(storico.map(s=>({label:s.label.slice(0,3),value:s.monte,color:s.futuro?'#5b6b8c':'#9085e9'}))):''}
+    <table class="rtable"><thead><tr><th>Fine mese</th><th class="num">Monte disponibile</th></tr></thead><tbody>
+    ${storico.map(s=>`<tr>
+      <td data-label="Fine mese"><b>${monthLabel(s.mese)}</b>${s.futuro?' <span style="font-size:10px;color:var(--muted)">previsto</span>':''}</td>
+      <td class="num" data-label="Monte disponibile"><b style="color:${s.monte<0?'var(--red)':'var(--violet)'}">${eur(s.monte)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
   <div class="card"><div class="card-head"><h3>💸 Prelievi / utilizzi bonus</h3><button class="btn-sm" onclick="openPrelievoBonus()">+ Registra spesa</button></div>
