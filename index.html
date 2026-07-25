@@ -499,6 +499,7 @@ function renderDashboard(el){
   const potLabel=id=>id==='iniziale'?'Iniziale':id==='fatture'?'Fatture':id;
   const donutColors=['#d95926','#c98500'];
   const tetto=w.tettoForfettario||85000;const usato=t.compensi;const residuoTetto=tetto-usato;const tettoPerc=tetto?Math.min(100,usato/tetto*100):0;
+  const pj=w.proiezione||{};const bonusTarget=pj.target||85000;const bonusAnnuoPrev=proietta(bonusTarget).bonusAnnuo;const bonusUsato=totFuoriD;const bonusUsatoPerc=bonusAnnuoPrev>0?Math.min(100,bonusUsato/bonusAnnuoPrev*100):0;const bonusResiduo=bonusAnnuoPrev-bonusUsato;
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
   <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
@@ -534,6 +535,10 @@ function renderDashboard(el){
     <div class="prog big ${tettoPerc>=100?'over':tettoPerc>=85?'warn':''}"><span style="width:${tettoPerc}%"></span></div>
     <div style="font-size:12px;color:var(--muted);margin-top:6px">${residuoTetto>=0?('Residuo prima del limite: '+eur(residuoTetto)):('Superato di '+eur(-residuoTetto))} ${tettoPerc>=85&&residuoTetto>=0?'⚠️ ti stai avvicinando al tetto':''}</div>
   </div>`:''}
+  <div class="card"><div class="card-head"><h3>🎁 Bonus ${w.anno} previsto</h3><span style="font-size:13px;color:${bonusResiduo<0?'var(--red)':bonusUsatoPerc>=85?'var(--amber)':'var(--muted)'}">utilizzato ${eur(bonusUsato)} / ${eur(bonusAnnuoPrev)}</span></div>
+    <div class="prog big ${bonusUsatoPerc>=100?'over':bonusUsatoPerc>=85?'warn':''}"><span style="width:${bonusUsatoPerc}%"></span></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px">${bonusResiduo>=0?('Residuo del bonus previsto: '+eur(bonusResiduo)):('Superato di '+eur(-bonusResiduo))} · tetto dal bonus annuo previsto per fatturato ${eur(bonusTarget)} (modificabile in Proiezione)</div>
+  </div>
   ${t.nFatture===0?`<div class="card"><div class="empty">Nessuna fattura registrata.<br><button class="btn-sm" style="margin-top:12px" onclick="goTo('fatture')">Aggiungi la prima fattura</button></div></div>`:''}`;
 }
 
