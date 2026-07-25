@@ -174,9 +174,12 @@ tr:hover td{background:rgba(255,255,255,.02)}
   .page-head{margin-bottom:16px}
   .page-head h2{font-size:19px}
   .regime-pill{font-size:10px}
-  .kpi-grid{grid-template-columns:1fr 1fr;gap:10px}
-  .kpi{padding:14px}
-  .kpi .val{font-size:20px}
+  .kpi-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .kpi{padding:14px;min-width:0;overflow:hidden}
+  .kpi .val{font-size:20px;overflow-wrap:break-word}
+  .kpi .lbl,.kpi .sub{overflow-wrap:break-word}
+  .conto-main .big{overflow-wrap:break-word}
+  #app{max-width:100%;overflow-x:hidden}
   .card{padding:15px;overflow-x:auto}
   .form-grid{grid-template-columns:1fr}
   .conto-hero{flex-direction:column}
