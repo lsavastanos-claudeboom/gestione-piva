@@ -181,6 +181,15 @@ tr:hover td{background:rgba(255,255,255,.02)}
   th,td{padding:8px 6px;font-size:13px}
   input,select{font-size:16px}
   #fab{bottom:calc(74px + env(safe-area-inset-bottom))}
+  table.rtable thead{display:none}
+  table.rtable tr{display:block;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:4px 12px;background:var(--panel2)}
+  table.rtable tr:hover td{background:none}
+  table.rtable td{display:flex;justify-content:space-between;align-items:center;gap:14px;border:none;border-bottom:1px solid rgba(255,255,255,.05);padding:9px 0;text-align:right;font-size:14px}
+  table.rtable td:last-child{border-bottom:none}
+  table.rtable td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:500;text-align:left;white-space:nowrap}
+  table.rtable td:empty{display:none}
+  .nav button{min-width:52px}
+  .nav button span:not(.ic){font-size:8px}
 }
 </style>
 </head>
@@ -229,7 +238,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   </aside>
   <main class="main" id="view"></main>
 </div>
-<button id="fab" onclick="openSpesa()" title="Nuova spesa">+</button>
+<button id="fab" onclick="openQuickAdd()" title="Nuovo inserimento">+</button>
 </div>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
@@ -470,15 +479,15 @@ function renderFatture(el){
   ${pageHead('Fatture','Fatture emesse e ripartizione di ogni importo')}
   <div class="card"><div class="card-head"><h3>🧾 Elenco fatture ${w.anno}</h3><button class="btn-sm" onclick="openFattura()">+ Nuova fattura</button></div>
     ${fs.length===0?'<div class="empty">Nessuna fattura. Clicca “Nuova fattura” per iniziare.</div>':`
-    <table><thead><tr><th>N.</th><th>Data</th><th>Cliente</th><th class="num">Compenso</th><th class="num">Rivalsa</th><th class="num">Totale</th><th class="num">Da versare</th><th class="num">Bonus</th><th>Stato</th><th></th></tr></thead><tbody>
-    ${fs.map(f=>`<tr><td>${esc(f.numero||'—')}</td><td>${fmtDate(f.data)}</td>
-      <td>${esc(f.cliente||'—')}<br><span style="font-size:11px;color:var(--muted)">${esc(f.descrizione||'')}</span></td>
-      <td class="num">${eur(f.compenso)}</td><td class="num" style="color:var(--muted)">${eur(f.rivalsa||0)}</td>
-      <td class="num"><b>${eur(f.totaleFattura)}</b></td>
-      <td class="num" style="color:var(--amber)">${eur(fVersare(f))}</td>
-      <td class="num" style="color:var(--violet)">${eur(f.bonus)}</td>
-      <td>${f.incassata?'<span class="tag ok">Incassata</span>':'<span class="tag wait">Emessa</span>'}</td>
-      <td style="white-space:nowrap"><button class="mini-btn" onclick="openFattura('${f.id}')">✎</button><button class="mini-btn del" onclick="delFattura('${f.id}')">🗑</button></td></tr>`).join('')}
+    <table class="rtable"><thead><tr><th>N.</th><th>Data</th><th>Cliente</th><th class="num">Compenso</th><th class="num">Rivalsa</th><th class="num">Totale</th><th class="num">Da versare</th><th class="num">Bonus</th><th>Stato</th><th></th></tr></thead><tbody>
+    ${fs.map(f=>`<tr><td data-label="N.">${esc(f.numero||'—')}</td><td data-label="Data">${fmtDate(f.data)}</td>
+      <td data-label="Cliente">${esc(f.cliente||'—')}${f.descrizione?(' <span style="font-size:11px;color:var(--muted)">· '+esc(f.descrizione)+'</span>'):''}</td>
+      <td class="num" data-label="Compenso">${eur(f.compenso)}</td><td class="num" data-label="Rivalsa" style="color:var(--muted)">${eur(f.rivalsa||0)}</td>
+      <td class="num" data-label="Totale"><b>${eur(f.totaleFattura)}</b></td>
+      <td class="num" data-label="Da versare" style="color:var(--amber)">${eur(fVersare(f))}</td>
+      <td class="num" data-label="Bonus" style="color:var(--violet)">${eur(f.bonus)}</td>
+      <td data-label="Stato">${f.incassata?'<span class="tag ok">Incassata</span>':'<span class="tag wait">Emessa</span>'}</td>
+      <td data-label="" style="white-space:nowrap"><button class="mini-btn" onclick="openFattura('${f.id}')">✎ Modifica</button><button class="mini-btn del" onclick="delFattura('${f.id}')">🗑</button></td></tr>`).join('')}
     </tbody></table>`}
   </div>`;
 }
@@ -592,11 +601,11 @@ function renderConto(el){
     <div class="scad">${scad.map(s=>`<div class="item" style="${s.pagato?'border-color:var(--green)':''}"><div class="t">${s.t}</div><div class="d">${s.d}</div>${s.pagato?`<div style="margin-top:8px;color:var(--green);font-size:12px;font-weight:600">✓ Registrata</div><div style="font-size:11px;color:var(--muted)">${eur(s.pagato.importo)} · ${fmtDate(s.pagato.data)}</div>`:`<button class="btn-sm btn-ghost" style="margin-top:8px;width:100%" onclick="openMovimento('pagamento','${s.cat}','${s.data}')">Registra</button>`}</div>`).join('')}</div>
   </div>
   <div class="card"><div class="card-head"><h3>💸 Movimenti del conto</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-sm" onclick="openMovimento('pagamento','imposte')">− Pagamento imposte</button><button class="btn-sm" style="background:var(--violet)" onclick="openMovimento('pagamento','inarcassa')">− Pagamento Inarcassa</button><button class="btn-sm btn-ghost" onclick="openMovimento('deposito','altro')">+ Deposito</button><button class="btn-sm btn-ghost" onclick="openMovimento('prelievo','altro')">− Prelievo</button></div></div>
-    <table><thead><tr><th>Data</th><th>Movimento</th><th class="num">Importo</th><th class="num">Saldo</th><th></th></tr></thead><tbody>
-    ${ledger.slice().reverse().map(r=>`<tr><td>${r.tipo==='init'?'—':fmtDate(r.data)}</td>
-      <td>${esc(r.desc)} ${r.cat==='inarcassa'?'<span class="tag ina">Inarcassa</span>':r.cat==='imposte'?'<span class="tag imp">Imposte</span>':''}${r.pending?'<span class="tag wait" style="margin-left:6px">non incassata</span>':''}</td>
-      <td class="num ${r.importo>=0?'pos':'neg'}">${r.importo>=0?'+':''}${eur(r.importo)}</td><td class="num">${eur(r.saldo)}</td>
-      <td>${r.id?`<button class="mini-btn del" onclick="delMovimento('${r.id}')">🗑</button>`:''}</td></tr>`).join('')}
+    <table class="rtable"><thead><tr><th>Data</th><th>Movimento</th><th class="num">Importo</th><th class="num">Saldo</th><th></th></tr></thead><tbody>
+    ${ledger.slice().reverse().map(r=>`<tr><td data-label="Data">${r.tipo==='init'?'—':fmtDate(r.data)}</td>
+      <td data-label="Movimento" style="text-align:left">${esc(r.desc)} ${r.cat==='inarcassa'?'<span class="tag ina">Inarcassa</span>':r.cat==='imposte'?'<span class="tag imp">Imposte</span>':''}${r.pending?'<span class="tag wait" style="margin-left:6px">non incassata</span>':''}</td>
+      <td class="num ${r.importo>=0?'pos':'neg'}" data-label="Importo">${r.importo>=0?'+':''}${eur(r.importo)}</td><td class="num" data-label="Saldo">${eur(r.saldo)}</td>
+      <td data-label="">${r.id?`<button class="mini-btn del" onclick="delMovimento('${r.id}')">🗑</button>`:''}</td></tr>`).join('')}
     </tbody></table>
   </div>`;
 }
@@ -654,8 +663,8 @@ function renderOrdinario(el){
   <div class="card"><h3>📆 Copertura dei mesi</h3><div class="desc">Quali mesi sono coperti dalle allocazioni delle fatture · ogni mese richiede ${eur(fab)}</div>
     ${(()=>{const dett={};fattureAnno().forEach(f=>(f.allocazioni||[]).forEach(a=>{(dett[a.mese]=dett[a.mese]||[]).push({num:f.numero||'—',cli:f.cliente||'',imp:a.importo});}));
       const keys=[...new Set([...monthsOfYear(w.anno),...Object.keys(dett)])].sort();
-      return `<table><thead><tr><th>Mese</th><th class="num">Fabbisogno</th><th class="num">Coperto</th><th>Stato</th><th>Coperto da</th></tr></thead><tbody>${keys.map(k=>{const it=dett[k]||[];const c=it.reduce((s,i)=>s+i.imp,0);const st=c>=fab-0.01?'<span class="tag ok">Coperto</span>':c>0?'<span class="tag wait">Parziale</span>':'<span class="tag" style="background:rgba(240,97,109,.15);color:var(--red)">Scoperto</span>';
-      return `<tr><td><b>${monthLabel(k)}</b></td><td class="num">${eur(fab)}</td><td class="num" style="color:var(--green)">${eur(c)}</td><td>${st}</td><td style="font-size:12px;color:var(--muted)">${it.map(i=>esc(i.num)+(i.cli?(' ('+esc(i.cli)+')'):'')+' · '+eur(i.imp)).join('<br>')||'—'}</td></tr>`;}).join('')}</tbody></table>`;})()}
+      return `<table class="rtable"><thead><tr><th>Mese</th><th class="num">Fabbisogno</th><th class="num">Coperto</th><th>Stato</th><th>Coperto da</th></tr></thead><tbody>${keys.map(k=>{const it=dett[k]||[];const c=it.reduce((s,i)=>s+i.imp,0);const st=c>=fab-0.01?'<span class="tag ok">Coperto</span>':c>0?'<span class="tag wait">Parziale</span>':'<span class="tag" style="background:rgba(240,97,109,.15);color:var(--red)">Scoperto</span>';
+      return `<tr><td data-label="Mese"><b>${monthLabel(k)}</b></td><td class="num" data-label="Fabbisogno">${eur(fab)}</td><td class="num" data-label="Coperto" style="color:var(--green)">${eur(c)}</td><td data-label="Stato">${st}</td><td data-label="Coperto da" style="font-size:12px;color:var(--muted)">${it.map(i=>esc(i.num)+(i.cli?(' ('+esc(i.cli)+')'):'')+' · '+eur(i.imp)).join('<br>')||'—'}</td></tr>`;}).join('')}</tbody></table>`;})()}
   </div>
   `;
 }
@@ -687,6 +696,18 @@ function openSpesa(){document.getElementById('modal').innerHTML=`
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   W().spese.push({id:uid(),data:document.getElementById('s_data').value||todayISO(),categoria:document.getElementById('s_cat').value.trim(),descrizione:document.getElementById('s_desc').value.trim(),importo:imp});save();closeModal();render();toast('Spesa registrata');}
 function delSpesa(id){W().spese=W().spese.filter(s=>s.id!==id);save();render();}
+function openQuickAdd(){
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>Nuovo inserimento</h3><button class="close-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Cosa vuoi registrare?</p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <button class="btn-sm" style="padding:16px;font-size:15px;text-align:left" onclick="closeModal();openSpesa()">🛒&nbsp;&nbsp;Spesa settimanale</button>
+        <button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--violet)" onclick="closeModal();openPrelievoBonus()">🎁&nbsp;&nbsp;Spesa dal bonus (prelievo)</button>
+      </div>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
 
 /* ============ BONUS (salvadanai) ============ */
 function renderBonus(el){
@@ -723,17 +744,17 @@ function renderBonus(el){
     ${rim>0?svgBars(remMesi.map(m=>({label:MESI[m-1].slice(0,3),value:mediaMese,color:'#9085e9'}))):'<div class="empty">Anno concluso.</div>'}
   </div>
   <div class="card"><h3>🐷 Salvadanai</h3><div class="desc">I bonus mensili si accumulano da ${monthLabel(w.bonusMensiliInizio||curMonthKey())} (${mesiBonus()} mesi completati). Modifica gli importi mensili nella composizione in “Ordinario mensile”.</div>
-    <table><thead><tr><th>Salvadanaio</th><th class="num">Iniziale</th><th class="num">Accreditato</th><th class="num">Prelevato</th><th class="num">Saldo</th></tr></thead><tbody>
-    ${pots.map(p=>`<tr><td><b>${esc(p.nome)}</b><br><span style="font-size:11px;color:var(--muted)">${esc(p.info||'')}</span></td>
-      <td class="num">${eur(p.iniziale)}</td><td class="num" style="color:var(--green)">${eur(p.accrediti)}</td>
-      <td class="num" style="color:var(--red)">${p.prelievi?('−'+eur(p.prelievi)):eur(0)}</td>
-      <td class="num"><b style="color:var(--violet)">${eur(p.saldo)}</b></td></tr>`).join('')}
+    <table class="rtable"><thead><tr><th>Salvadanaio</th><th class="num">Iniziale</th><th class="num">Accreditato</th><th class="num">Prelevato</th><th class="num">Saldo</th></tr></thead><tbody>
+    ${pots.map(p=>`<tr><td data-label="Salvadanaio" style="text-align:left"><b>${esc(p.nome)}</b><br><span style="font-size:11px;color:var(--muted)">${esc(p.info||'')}</span></td>
+      <td class="num" data-label="Iniziale">${eur(p.iniziale)}</td><td class="num" data-label="Accreditato" style="color:var(--green)">${eur(p.accrediti)}</td>
+      <td class="num" data-label="Prelevato" style="color:var(--red)">${p.prelievi?('−'+eur(p.prelievi)):eur(0)}</td>
+      <td class="num" data-label="Saldo"><b style="color:var(--violet)">${eur(p.saldo)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
   <div class="card"><div class="card-head"><h3>💸 Prelievi / utilizzi bonus</h3><button class="btn-sm" onclick="openPrelievoBonus()">+ Registra prelievo</button></div>
     ${prel.length===0?'<div class="empty">Nessun prelievo dai bonus. Quando usi un bonus (acquisto, extra…), registralo qui per scalarlo dal salvadanaio.</div>':`
-    <table><thead><tr><th>Data</th><th>Salvadanaio</th><th>Note</th><th class="num">Importo</th><th></th></tr></thead><tbody>
-    ${prel.map(x=>`<tr><td>${fmtDate(x.data)}</td><td>${esc(potName(x.pot))}</td><td style="color:var(--muted)">${esc(x.note||'—')}</td><td class="num" style="color:var(--red)">−${eur(x.importo)}</td><td><button class="mini-btn del" onclick="delPrelievoBonus('${x.id}')">🗑</button></td></tr>`).join('')}
+    <table class="rtable"><thead><tr><th>Data</th><th>Salvadanaio</th><th>Note</th><th class="num">Importo</th><th></th></tr></thead><tbody>
+    ${prel.map(x=>`<tr><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Salvadanaio">${esc(potName(x.pot))}</td><td data-label="Note" style="color:var(--muted)">${esc(x.note||'—')}</td><td class="num" data-label="Importo" style="color:var(--red)">−${eur(x.importo)}</td><td data-label=""><button class="mini-btn del" onclick="delPrelievoBonus('${x.id}')">🗑</button></td></tr>`).join('')}
     </tbody></table>`}
   </div>`;
 }
@@ -800,8 +821,8 @@ function renderProiezione(el){
     <div style="font-size:12px;color:var(--muted);margin-top:12px">Fatturato già emesso quest'anno: <b style="color:var(--txt)">${eur(t.compensi)}</b> — mancano ${eur(Math.max(0,target-t.compensi))} all'obiettivo (compensi).</div>
   </div>
   <div class="card"><h3>📊 Scenari a confronto</h3><div class="desc">Bonus residuo con diversi livelli di fatturato</div>
-    <table><thead><tr><th>Fatturato</th><th class="num">Imposte</th><th class="num">Utile</th><th class="num">− Ordinario</th><th class="num">Premio</th><th class="num">Bonus annuo</th><th class="num">− Spese</th><th class="num">Residuo</th></tr></thead><tbody>
-    ${(p.scenari||[]).map(s=>{const x=proietta(s);return `<tr><td><b>${eur(s)}</b></td><td class="num" style="color:var(--amber)">${eur(x.imposte)}</td><td class="num">${eur(x.utile)}</td><td class="num" style="color:var(--muted)">− ${eur(w.proiezione.quotaOrdinaria)}</td><td class="num">${eur(x.premio)}</td><td class="num">${eur(x.bonusAnnuo)}</td><td class="num">${eur(x.speseGrandi)}</td><td class="num" style="color:${x.residuoDopoSpese<0?'var(--red)':'var(--violet)'}"><b>${eur(x.residuoDopoSpese)}</b></td></tr>`;}).join('')}
+    <table class="rtable"><thead><tr><th>Fatturato</th><th class="num">Imposte</th><th class="num">Utile</th><th class="num">− Ordinario</th><th class="num">Premio</th><th class="num">Bonus annuo</th><th class="num">− Spese</th><th class="num">Residuo</th></tr></thead><tbody>
+    ${(p.scenari||[]).map(s=>{const x=proietta(s);return `<tr><td data-label="Fatturato"><b>${eur(s)}</b></td><td class="num" data-label="Imposte" style="color:var(--amber)">${eur(x.imposte)}</td><td class="num" data-label="Utile">${eur(x.utile)}</td><td class="num" data-label="− Ordinario" style="color:var(--muted)">− ${eur(w.proiezione.quotaOrdinaria)}</td><td class="num" data-label="Premio">${eur(x.premio)}</td><td class="num" data-label="Bonus annuo">${eur(x.bonusAnnuo)}</td><td class="num" data-label="− Spese">${eur(x.speseGrandi)}</td><td class="num" data-label="Residuo" style="color:${x.residuoDopoSpese<0?'var(--red)':'var(--violet)'}"><b>${eur(x.residuoDopoSpese)}</b></td></tr>`;}).join('')}
     </tbody></table>
   </div>
   <div class="card"><h3>⚙︎ Parametri della proiezione</h3>
