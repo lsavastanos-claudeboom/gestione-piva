@@ -645,13 +645,17 @@ function renderConto(el){
   const pendingTot=ledger.filter(r=>r.tipo==='accredito'&&r.pending).reduce((s,r)=>s+r.importo,0);
   const y=w.anno;
   const scad=[{d:'30/06',t:'Inarcassa',cat:'inarcassa',data:y+'-06-30'},{d:'20/07',t:'Imposte (saldo + acconto)',cat:'imposte',data:y+'-07-20'},{d:'30/09',t:'Inarcassa',cat:'inarcassa',data:y+'-09-30'},{d:'30/11',t:'Imposte (2° acconto)',cat:'imposte',data:y+'-11-30'},{d:'31/12',t:'Conguaglio Inarcassa',cat:'inarcassa',data:y+'-12-31'}];
-  const previsti=(ci.previsti||[]).slice().sort((a,b)=>(a.scadenza||'').localeCompare(b.scadenza||''));
-  const prevImposte=previsti.filter(p=>p.cat==='imposte').reduce((s,p)=>s+(+p.importo||0),0);
-  const prevInarcassa=previsti.filter(p=>p.cat==='inarcassa').reduce((s,p)=>s+(+p.importo||0),0);
-  const prevTot=prevImposte+prevInarcassa;const copertura=prevTot-saldo;
-  let _run=saldo;const previstiRows=previsti.map(p=>{_run-=(+p.importo||0);return Object.assign({},p,{saldoIpo:_run});});
+  const previstiAll=(ci.previsti||[]).slice();
   const paidMov=w.movimenti.filter(m=>m.tipo==='pagamento');const usedMov=new Set();
   scad.forEach(s=>{const sd=new Date(s.data+'T00:00:00');let best=null,bd=1e9;paidMov.forEach(m=>{if(usedMov.has(m.id)||m.categoria!==s.cat)return;const diff=Math.abs(new Date((m.data||s.data)+'T00:00:00')-sd)/86400000;if(diff<=45&&diff<bd){bd=diff;best=m;}});if(best){usedMov.add(best.id);s.pagato=best;}});
+  const usedPrev=new Set();
+  scad.forEach(s=>{const p=previstiAll.find(pv=>!usedPrev.has(pv.id)&&pv.cat===s.cat&&pv.scadenza===s.data);if(p){usedPrev.add(p.id);s.previsto=p;}});
+  const extraPrev=previstiAll.filter(p=>!usedPrev.has(p.id)).map(p=>({t:p.cat==='inarcassa'?'Inarcassa (previsto)':'Imposte (previste)',cat:p.cat,data:p.scadenza||(y+'-12-31'),previsto:p,custom:true}));
+  const scadRows=[...scad,...extraPrev].sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  let _run=saldo;scadRows.forEach(r=>{if(!r.pagato&&r.previsto){_run-=(+r.previsto.importo||0);r.saldoIpo=_run;r.hasProj=true;}else{r.hasProj=false;}});
+  const prevImposte=scadRows.filter(r=>!r.pagato&&r.previsto&&r.cat==='imposte').reduce((s,r)=>s+(+r.previsto.importo||0),0);
+  const prevInarcassa=scadRows.filter(r=>!r.pagato&&r.previsto&&r.cat==='inarcassa').reduce((s,r)=>s+(+r.previsto.importo||0),0);
+  const prevTot=prevImposte+prevInarcassa;const copertura=prevTot-saldo;
   el.innerHTML=`
   ${pageHead('Conto imposte','Liquidità del conto per imposte e Inarcassa'+(w.denominazione?(' · '+esc(w.denominazione)):''))}
   <div class="conto-hero">
@@ -667,21 +671,24 @@ function renderConto(el){
       <div class="kpi"><div class="lbl">➖ Pagato</div><div class="val" style="font-size:20px">${eur(pagInarcassa+pagImposte)}</div><div class="sub">Inarcassa ${eur(pagInarcassa)} · Imposte ${eur(pagImposte)}</div></div>
     </div>
   </div>
-  <div class="card"><h3>🗓️ Scadenzario ${y}</h3><div class="desc">Scadenze tipiche — clicca per registrare il pagamento dal conto</div>
-    <div class="scad">${scad.map(s=>`<div class="item" style="${s.pagato?'border-color:var(--green)':''}"><div class="t">${s.t}</div><div class="d">${s.d}</div>${s.pagato?`<div style="margin-top:8px;color:var(--green);font-size:12px;font-weight:600">✓ Registrata</div><div style="font-size:11px;color:var(--muted)">${eur(s.pagato.importo)} · ${fmtDate(s.pagato.data)}</div>`:`<button class="btn-sm btn-ghost" style="margin-top:8px;width:100%" onclick="openMovimento('pagamento','${s.cat}','${s.data}')">Registra</button>`}</div>`).join('')}</div>
-  </div>
-  <div class="card"><div class="card-head"><h3>📋 Importi previsti da pagare</h3><button class="btn-sm" onclick="openPrevisto()">+ Aggiungi importo previsto</button></div>
-    <div class="desc">Stime di imposte e Inarcassa che dovrai versare. Sono solo previsioni: <b>non</b> entrano nei movimenti né nel saldo del conto. Il "saldo ipotetico" parte dal saldo attuale (${eur(saldo)}) e scala ogni pagamento in ordine di scadenza, così vedi come si ridurrebbe il conto.</div>
-    ${previsti.length===0?'<div class="empty">Nessun importo previsto. Aggiungi le stime dei prossimi versamenti (es. conguaglio Inarcassa, saldo imposte).</div>':`
-    <table class="rtable"><thead><tr><th>Scadenza</th><th>Tipo</th><th>Note</th><th class="num">Importo</th><th class="num">Saldo ipotetico</th><th></th></tr></thead><tbody>
-    ${previstiRows.map(p=>`<tr><td data-label="Scadenza">${p.scadenza?fmtDate(p.scadenza):'—'}</td><td data-label="Tipo">${p.cat==='inarcassa'?'<span class="tag ina">Inarcassa</span>':'<span class="tag imp">Imposte</span>'}</td><td data-label="Note" style="color:var(--muted)">${esc(p.note||'—')}</td><td class="num" data-label="Importo" style="color:var(--amber)">−${eur(+p.importo||0)}</td><td class="num" data-label="Saldo ipotetico" style="color:${p.saldoIpo<0?'var(--red)':'var(--green)'};font-weight:600">${eur(p.saldoIpo)}</td><td data-label=""><button class="mini-btn del" onclick="delPrevisto('${p.id}')">🗑</button></td></tr>`).join('')}
-    <tr><td colspan="3"><b>Totale previsto</b></td><td class="num"><b style="color:var(--amber)">−${eur(prevTot)}</b></td><td class="num"><b style="color:${(saldo-prevTot)<0?'var(--red)':'var(--green)'}">${eur(saldo-prevTot)}</b></td><td></td></tr>
+  <div class="card"><div class="card-head"><h3>🗓️ Scadenze e pagamenti previsti ${y}</h3><button class="btn-sm" onclick="openPrevisto()">+ Scadenza / stima</button></div>
+    <div class="desc">Scadenze tipiche di imposte e Inarcassa: imposta la <b>stima</b> di quanto verserai (non incide sul saldo) e registra il pagamento quando lo effettui. Il "saldo ipotetico" parte dal saldo attuale (${eur(saldo)}) e scala le stime non ancora pagate in ordine di scadenza.</div>
+    <table class="rtable"><thead><tr><th>Scadenza</th><th>Tipo</th><th class="num">Stima</th><th>Stato</th><th class="num">Saldo ipotetico</th><th></th></tr></thead><tbody>
+    ${scadRows.map(r=>`<tr>
+      <td data-label="Scadenza"><b>${fmtDate(r.data)}</b></td>
+      <td data-label="Tipo">${r.cat==='inarcassa'?'<span class="tag ina">Inarcassa</span>':'<span class="tag imp">Imposte</span>'}<div style="font-size:11px;color:var(--muted)">${esc(r.t)}${r.previsto&&r.previsto.note?(' · '+esc(r.previsto.note)):''}</div></td>
+      <td class="num" data-label="Stima">${r.previsto?`<span style="color:var(--amber)">${eur(+r.previsto.importo||0)}</span> <button class="mini-btn del" onclick="delPrevisto('${r.previsto.id}')">🗑</button>`:`<button class="mini-btn" onclick="openPrevisto('${r.cat}','${r.data}')">+ stima</button>`}</td>
+      <td data-label="Stato">${r.pagato?`<span class="tag ok">✓ Registrata</span><div style="font-size:11px;color:var(--muted)">${eur(r.pagato.importo)} · ${fmtDate(r.pagato.data)}</div>`:'<span class="tag wait">Da pagare</span>'}</td>
+      <td class="num" data-label="Saldo ipotetico">${r.hasProj?`<b style="color:${r.saldoIpo<0?'var(--red)':'var(--green)'}">${eur(r.saldoIpo)}</b>`:'<span style="color:var(--muted)">—</span>'}</td>
+      <td data-label="">${r.pagato?'':`<button class="btn-sm btn-ghost" onclick="openMovimento('pagamento','${r.cat}','${r.data}')">Registra</button>`}</td>
+    </tr>`).join('')}
+    <tr><td colspan="2"><b>Totale stime da pagare</b></td><td class="num"><b style="color:var(--amber)">${eur(prevTot)}</b></td><td></td><td class="num"><b style="color:${(saldo-prevTot)<0?'var(--red)':'var(--green)'}">${eur(saldo-prevTot)}</b></td><td></td></tr>
     </tbody></table>
-    <div class="kpi-grid" style="margin-top:14px">
-      <div class="kpi"><div class="lbl">Imposte previste</div><div class="val" style="font-size:20px">${eur(prevImposte)}</div></div>
-      <div class="kpi violet"><div class="lbl">Inarcassa prevista</div><div class="val" style="font-size:20px">${eur(prevInarcassa)}</div></div>
-      <div class="kpi ${copertura>0?'red':'green'}"><div class="lbl">${copertura>0?'Mancano sul conto':'Coperto dal conto'}</div><div class="val" style="font-size:20px">${eur(Math.abs(copertura))}</div><div class="sub">saldo ${eur(saldo)} vs previsto ${eur(prevTot)}</div></div>
-    </div>`}
+    ${prevTot>0?`<div class="kpi-grid" style="margin-top:14px">
+      <div class="kpi"><div class="lbl">Imposte da versare (stima)</div><div class="val" style="font-size:20px">${eur(prevImposte)}</div></div>
+      <div class="kpi violet"><div class="lbl">Inarcassa da versare (stima)</div><div class="val" style="font-size:20px">${eur(prevInarcassa)}</div></div>
+      <div class="kpi ${copertura>0?'red':'green'}"><div class="lbl">${copertura>0?'Mancano sul conto':'Coperto dal conto'}</div><div class="val" style="font-size:20px">${eur(Math.abs(copertura))}</div><div class="sub">saldo ${eur(saldo)} vs stime ${eur(prevTot)}</div></div>
+    </div>`:''}
   </div>
   <div class="card"><div class="card-head"><h3>💸 Movimenti del conto</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-sm" onclick="openMovimento('pagamento','imposte')">− Pagamento imposte</button><button class="btn-sm" style="background:var(--violet)" onclick="openMovimento('pagamento','inarcassa')">− Pagamento Inarcassa</button><button class="btn-sm btn-ghost" onclick="openMovimento('deposito','altro')">+ Deposito</button><button class="btn-sm btn-ghost" onclick="openMovimento('prelievo','altro')">− Prelievo</button></div></div>
     <table class="rtable"><thead><tr><th>Data</th><th>Movimento</th><th class="num">Importo</th><th class="num">Saldo</th><th></th></tr></thead><tbody>
@@ -714,12 +721,12 @@ function saveMovimento(tipo){
   save();closeModal();render();toast('Movimento registrato');
 }
 function delMovimento(id){W().movimenti=W().movimenti.filter(m=>m.id!==id);save();render();}
-function openPrevisto(){const y=W().anno;
+function openPrevisto(preCat,preScad){const y=W().anno;
   document.getElementById('modal').innerHTML=`
-    <div class="modal-head"><h3>Importo previsto da pagare</h3><button class="close-x" onclick="closeModal()">×</button></div>
+    <div class="modal-head"><h3>Stima da versare</h3><button class="close-x" onclick="closeModal()">×</button></div>
     <div class="modal-body"><div class="form-grid">
-      <div class="fld"><label>Tipo</label><select id="pv_cat"><option value="imposte">Imposte (F24)</option><option value="inarcassa">Inarcassa</option></select></div>
-      <div class="fld"><label>Scadenza</label><input id="pv_scad" type="date" value="${y}-12-31"></div>
+      <div class="fld"><label>Tipo</label><select id="pv_cat"><option value="imposte" ${preCat==='imposte'?'selected':''}>Imposte (F24)</option><option value="inarcassa" ${preCat==='inarcassa'?'selected':''}>Inarcassa</option></select></div>
+      <div class="fld"><label>Scadenza</label><input id="pv_scad" type="date" value="${preScad||(y+'-12-31')}"></div>
       <div class="fld"><label>Importo previsto (€)</label><input id="pv_imp" type="number" step="0.01" placeholder="0,00"></div>
       <div class="fld" style="grid-column:1/-1"><label>Note</label><input id="pv_note" placeholder="es. conguaglio Inarcassa, saldo imposte…"></div>
     </div><p style="font-size:12px;color:var(--muted);margin-top:6px">Questo importo è solo una previsione: non verrà inserito nei movimenti del conto.</p></div>
