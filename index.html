@@ -633,6 +633,7 @@ function renderConto(el){
   const prevImposte=previsti.filter(p=>p.cat==='imposte').reduce((s,p)=>s+(+p.importo||0),0);
   const prevInarcassa=previsti.filter(p=>p.cat==='inarcassa').reduce((s,p)=>s+(+p.importo||0),0);
   const prevTot=prevImposte+prevInarcassa;const copertura=prevTot-saldo;
+  let _run=saldo;const previstiRows=previsti.map(p=>{_run-=(+p.importo||0);return Object.assign({},p,{saldoIpo:_run});});
   const paidMov=w.movimenti.filter(m=>m.tipo==='pagamento');const usedMov=new Set();
   scad.forEach(s=>{const sd=new Date(s.data+'T00:00:00');let best=null,bd=1e9;paidMov.forEach(m=>{if(usedMov.has(m.id)||m.categoria!==s.cat)return;const diff=Math.abs(new Date((m.data||s.data)+'T00:00:00')-sd)/86400000;if(diff<=45&&diff<bd){bd=diff;best=m;}});if(best){usedMov.add(best.id);s.pagato=best;}});
   el.innerHTML=`
@@ -654,11 +655,11 @@ function renderConto(el){
     <div class="scad">${scad.map(s=>`<div class="item" style="${s.pagato?'border-color:var(--green)':''}"><div class="t">${s.t}</div><div class="d">${s.d}</div>${s.pagato?`<div style="margin-top:8px;color:var(--green);font-size:12px;font-weight:600">✓ Registrata</div><div style="font-size:11px;color:var(--muted)">${eur(s.pagato.importo)} · ${fmtDate(s.pagato.data)}</div>`:`<button class="btn-sm btn-ghost" style="margin-top:8px;width:100%" onclick="openMovimento('pagamento','${s.cat}','${s.data}')">Registra</button>`}</div>`).join('')}</div>
   </div>
   <div class="card"><div class="card-head"><h3>📋 Importi previsti da pagare</h3><button class="btn-sm" onclick="openPrevisto()">+ Aggiungi importo previsto</button></div>
-    <div class="desc">Stime di imposte e Inarcassa che dovrai versare. Sono solo previsioni: <b>non</b> entrano nei movimenti né nel saldo del conto, servono a capire in anticipo quanto ti servirà.</div>
+    <div class="desc">Stime di imposte e Inarcassa che dovrai versare. Sono solo previsioni: <b>non</b> entrano nei movimenti né nel saldo del conto. Il "saldo ipotetico" parte dal saldo attuale (${eur(saldo)}) e scala ogni pagamento in ordine di scadenza, così vedi come si ridurrebbe il conto.</div>
     ${previsti.length===0?'<div class="empty">Nessun importo previsto. Aggiungi le stime dei prossimi versamenti (es. conguaglio Inarcassa, saldo imposte).</div>':`
-    <table class="rtable"><thead><tr><th>Scadenza</th><th>Tipo</th><th>Note</th><th class="num">Importo</th><th></th></tr></thead><tbody>
-    ${previsti.map(p=>`<tr><td data-label="Scadenza">${p.scadenza?fmtDate(p.scadenza):'—'}</td><td data-label="Tipo">${p.cat==='inarcassa'?'<span class="tag ina">Inarcassa</span>':'<span class="tag imp">Imposte</span>'}</td><td data-label="Note" style="color:var(--muted)">${esc(p.note||'—')}</td><td class="num" data-label="Importo" style="color:var(--amber)">${eur(+p.importo||0)}</td><td data-label=""><button class="mini-btn del" onclick="delPrevisto('${p.id}')">🗑</button></td></tr>`).join('')}
-    <tr><td colspan="3"><b>Totale previsto</b></td><td class="num"><b style="color:var(--amber)">${eur(prevTot)}</b></td><td></td></tr>
+    <table class="rtable"><thead><tr><th>Scadenza</th><th>Tipo</th><th>Note</th><th class="num">Importo</th><th class="num">Saldo ipotetico</th><th></th></tr></thead><tbody>
+    ${previstiRows.map(p=>`<tr><td data-label="Scadenza">${p.scadenza?fmtDate(p.scadenza):'—'}</td><td data-label="Tipo">${p.cat==='inarcassa'?'<span class="tag ina">Inarcassa</span>':'<span class="tag imp">Imposte</span>'}</td><td data-label="Note" style="color:var(--muted)">${esc(p.note||'—')}</td><td class="num" data-label="Importo" style="color:var(--amber)">−${eur(+p.importo||0)}</td><td class="num" data-label="Saldo ipotetico" style="color:${p.saldoIpo<0?'var(--red)':'var(--green)'};font-weight:600">${eur(p.saldoIpo)}</td><td data-label=""><button class="mini-btn del" onclick="delPrevisto('${p.id}')">🗑</button></td></tr>`).join('')}
+    <tr><td colspan="3"><b>Totale previsto</b></td><td class="num"><b style="color:var(--amber)">−${eur(prevTot)}</b></td><td class="num"><b style="color:${(saldo-prevTot)<0?'var(--red)':'var(--green)'}">${eur(saldo-prevTot)}</b></td><td></td></tr>
     </tbody></table>
     <div class="kpi-grid" style="margin-top:14px">
       <div class="kpi"><div class="lbl">Imposte previste</div><div class="val" style="font-size:20px">${eur(prevImposte)}</div></div>
