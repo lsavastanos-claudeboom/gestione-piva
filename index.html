@@ -282,7 +282,7 @@ function newWorkspace(){return{
   tettoForfettario:85000, fabbisognoMensile:2500, riportoOrdinario:0,
   forfettario:{coefficiente:78, impostePerc:30, aliquotaSostitutiva:15},
   ordinario:{aliquotaImposte:27, contributi:14.5, iva:22},
-  contoImposte:{saldoIniziale:0, soloIncassate:false},
+  contoImposte:{saldoIniziale:0, soloIncassate:false, previsti:[]},
   speseMensili:[
     {id:'m1',nome:'Affitto casa',importo:400,tipo:'spesa'},
     {id:'m2',nome:'Rata leasing Tesla',importo:600,tipo:'spesa'},
@@ -439,6 +439,10 @@ function totali(){
 }
 function ordinarioPerMese(){const map={};fattureAnno().forEach(f=>(f.allocazioni||[]).forEach(a=>{map[a.mese]=(map[a.mese]||0)+a.importo;}));return map;}
 function spesePerMese(mese){return W().spese.filter(s=>(s.data||'').slice(0,7)===mese).reduce((t,s)=>t+s.importo,0);}
+function isMonthlyPot(id){return (W().speseMensili||[]).some(x=>x.tipo==='bonus'&&x.id===id);}
+/* Spese dei bonus "oltre i 2500": prelievi dai monti iniziale/fatture (NON dai bonus mensili tipo1/tipo2, che rientrano nei 2500). Per mese di sostenimento (data). */
+function speseFuori2500PerMese(){const map={};(W().prelieviBonus||[]).forEach(p=>{if(isMonthlyPot(p.pot))return;const k=(p.data||'').slice(0,7);if(k)map[k]=(map[k]||0)+p.importo;});return map;}
+function speseFuori2500Mese(mese){return (W().prelieviBonus||[]).filter(p=>!isMonthlyPot(p.pot)&&(p.data||'').slice(0,7)===mese).reduce((s,p)=>s+p.importo,0);}
 function contoLedger(){
   const w=W();const ci=w.contoImposte;const rows=[];
   rows.push({data:'',desc:'Saldo iniziale',importo:+ci.saldoIniziale||0,tipo:'init'});
@@ -478,8 +482,13 @@ function renderDashboard(el){
   const pots=bonusPots();const bonusTot=pots.reduce((s,p)=>s+p.saldo,0);
   const wkMapD={};w.spese.forEach(s=>{const k=weekKey(s.data);if(!wkMapD[k])wkMapD[k]={tot:0,sample:s.data};wkMapD[k].tot+=s.importo;});
   const wkDataD=Object.keys(wkMapD).sort().slice(-8).map(k=>({label:weekRange(wkMapD[k].sample).split('–')[0].trim(),value:wkMapD[k].tot}));
-  const moMapD={};w.spese.forEach(s=>{const k=(s.data||'').slice(0,7);if(k)moMapD[k]=(moMapD[k]||0)+s.importo;});
+  const moMapD=speseFuori2500PerMese();
   const moDataD=Object.keys(moMapD).sort().slice(-6).map(k=>({label:MESI[+k.slice(5,7)-1].slice(0,3),value:moMapD[k]}));
+  const fab=w.fabbisognoMensile||0;const cbm=curBonusMese();
+  const monthlyBonuses=(w.speseMensili||[]).filter(x=>x.tipo==='bonus');
+  const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+x.importo,0)||budgetWk*4;
+  const speseMeseCorr=spesePerMese(cm);
+  const progRow=(label,speso,bdg)=>{const pc=bdg?Math.min(100,speso/bdg*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${label}</span><span style="color:${speso>bdg?'var(--red)':'var(--muted)'}">${eur(speso)} / ${eur(bdg)}</span></div><div class="prog ${pc>=100?'over':pc>=80?'warn':''}"><span style="width:${pc}%"></span></div></div>`;};
   const tetto=w.tettoForfettario||85000;const usato=t.compensi;const residuoTetto=tetto-usato;const tettoPerc=tetto?Math.min(100,usato/tetto*100):0;
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
@@ -494,10 +503,11 @@ function renderDashboard(el){
     <div class="prog big ${tettoPerc>=100?'over':tettoPerc>=85?'warn':''}"><span style="width:${tettoPerc}%"></span></div>
     <div style="font-size:12px;color:var(--muted);margin-top:6px">${residuoTetto>=0?('Residuo prima del limite: '+eur(residuoTetto)):('Superato di '+eur(-residuoTetto))} ${tettoPerc>=85&&residuoTetto>=0?'⚠️ ti stai avvicinando al tetto':''}</div>
   </div>`:''}
-  <div class="card"><div class="card-head"><h3>🛒 Budget settimana corrente</h3><span style="font-size:12px;color:var(--muted)">${weekRange(todayISO())}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:14px"><span>Speso <b>${eur(speseWk)}</b></span><span style="color:var(--muted)">Budget ${eur(budgetWk)}</span></div>
-    <div class="prog ${wkPerc>=100?'over':wkPerc>=80?'warn':''}"><span style="width:${wkPerc}%"></span></div>
-    <div style="font-size:12px;color:var(--muted);margin-top:6px">${speseWk<=budgetWk?('Restano '+eur(budgetWk-speseWk)):('Sforato di '+eur(speseWk-budgetWk))}</div>
+  <div class="card"><h3>🧩 Quote flessibili dei ${eur(fab)} — ${monthLabel(cm)}</h3>
+    <div class="desc">Bonus tipo 1, tipo 2 e budget settimanale fanno tutti parte dei ${eur(fab)}/mese. Speso vs assegnato questo mese.</div>
+    ${monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return progRow('🎁 '+esc(mb.nome),sp,mb.importo);}).join('')}
+    ${progRow('🛒 Budget settimanale (mese)',speseMeseCorr,budgetSettMensile)}
+    <div style="font-size:12px;color:var(--muted);margin-top:2px">Settimana corrente (${weekRange(todayISO())}): speso ${eur(speseWk)} / ${eur(budgetWk)}${speseWk>budgetWk?(' · <span style="color:var(--red)">sforato di '+eur(speseWk-budgetWk)+'</span>'):(' · restano '+eur(budgetWk-speseWk))}</div>
   </div>
   <div class="card"><div class="card-head"><h3>🎁 Bonus disponibili</h3><span style="font-size:14px;color:var(--violet);font-weight:700">Totale ${eur(bonusTot)}</span></div>
     <table><tbody>
@@ -506,8 +516,8 @@ function renderDashboard(el){
   </div>
   <div class="card"><h3>🛒 Spese settimanali</h3><div class="desc">Ultime settimane · budget ${eur(budgetWk)}/sett.</div>
     ${wkDataD.length?svgBars(wkDataD,{budget:budgetWk,color:'#3987e5',h:180}):'<div class="empty">Nessuna spesa settimanale registrata.</div>'}</div>
-  <div class="card"><h3>📅 Spese per mese</h3><div class="desc">Totale spese registrate per mese</div>
-    ${moDataD.length?svgBars(moDataD,{color:'#199e70',h:180}):'<div class="empty">Nessuna spesa registrata.</div>'}</div>
+  <div class="card"><h3>📅 Spese oltre i ${eur(fab)} per mese</h3><div class="desc">Spese dai bonus (monte fatture/iniziale) sostenute ogni mese, al di fuori dei ${eur(fab)} fissi</div>
+    ${moDataD.length?svgBars(moDataD,{color:'#9085e9',h:180}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}</div>
   ${t.nFatture===0?`<div class="card"><div class="empty">Nessuna fattura registrata.<br><button class="btn-sm" style="margin-top:12px" onclick="goTo('fatture')">Aggiungi la prima fattura</button></div></div>`:''}`;
 }
 
@@ -618,7 +628,11 @@ function renderConto(el){
   const pagImposte=w.movimenti.filter(m=>m.tipo==='pagamento'&&m.categoria==='imposte').reduce((s,m)=>s+m.importo,0);
   const pendingTot=ledger.filter(r=>r.tipo==='accredito'&&r.pending).reduce((s,r)=>s+r.importo,0);
   const y=w.anno;
-  const scad=[{d:'30/06',t:'Inarcassa',cat:'inarcassa',data:y+'-06-30'},{d:'20/07',t:'Imposte (saldo + acconto)',cat:'imposte',data:y+'-07-20'},{d:'30/09',t:'Inarcassa',cat:'inarcassa',data:y+'-09-30'},{d:'30/11',t:'Imposte (2° acconto)',cat:'imposte',data:y+'-11-30'}];
+  const scad=[{d:'30/06',t:'Inarcassa',cat:'inarcassa',data:y+'-06-30'},{d:'20/07',t:'Imposte (saldo + acconto)',cat:'imposte',data:y+'-07-20'},{d:'30/09',t:'Inarcassa',cat:'inarcassa',data:y+'-09-30'},{d:'30/11',t:'Imposte (2° acconto)',cat:'imposte',data:y+'-11-30'},{d:'31/12',t:'Conguaglio Inarcassa',cat:'inarcassa',data:y+'-12-31'}];
+  const previsti=(ci.previsti||[]).slice().sort((a,b)=>(a.scadenza||'').localeCompare(b.scadenza||''));
+  const prevImposte=previsti.filter(p=>p.cat==='imposte').reduce((s,p)=>s+(+p.importo||0),0);
+  const prevInarcassa=previsti.filter(p=>p.cat==='inarcassa').reduce((s,p)=>s+(+p.importo||0),0);
+  const prevTot=prevImposte+prevInarcassa;const copertura=prevTot-saldo;
   const paidMov=w.movimenti.filter(m=>m.tipo==='pagamento');const usedMov=new Set();
   scad.forEach(s=>{const sd=new Date(s.data+'T00:00:00');let best=null,bd=1e9;paidMov.forEach(m=>{if(usedMov.has(m.id)||m.categoria!==s.cat)return;const diff=Math.abs(new Date((m.data||s.data)+'T00:00:00')-sd)/86400000;if(diff<=45&&diff<bd){bd=diff;best=m;}});if(best){usedMov.add(best.id);s.pagato=best;}});
   el.innerHTML=`
@@ -638,6 +652,19 @@ function renderConto(el){
   </div>
   <div class="card"><h3>🗓️ Scadenzario ${y}</h3><div class="desc">Scadenze tipiche — clicca per registrare il pagamento dal conto</div>
     <div class="scad">${scad.map(s=>`<div class="item" style="${s.pagato?'border-color:var(--green)':''}"><div class="t">${s.t}</div><div class="d">${s.d}</div>${s.pagato?`<div style="margin-top:8px;color:var(--green);font-size:12px;font-weight:600">✓ Registrata</div><div style="font-size:11px;color:var(--muted)">${eur(s.pagato.importo)} · ${fmtDate(s.pagato.data)}</div>`:`<button class="btn-sm btn-ghost" style="margin-top:8px;width:100%" onclick="openMovimento('pagamento','${s.cat}','${s.data}')">Registra</button>`}</div>`).join('')}</div>
+  </div>
+  <div class="card"><div class="card-head"><h3>📋 Importi previsti da pagare</h3><button class="btn-sm" onclick="openPrevisto()">+ Aggiungi importo previsto</button></div>
+    <div class="desc">Stime di imposte e Inarcassa che dovrai versare. Sono solo previsioni: <b>non</b> entrano nei movimenti né nel saldo del conto, servono a capire in anticipo quanto ti servirà.</div>
+    ${previsti.length===0?'<div class="empty">Nessun importo previsto. Aggiungi le stime dei prossimi versamenti (es. conguaglio Inarcassa, saldo imposte).</div>':`
+    <table class="rtable"><thead><tr><th>Scadenza</th><th>Tipo</th><th>Note</th><th class="num">Importo</th><th></th></tr></thead><tbody>
+    ${previsti.map(p=>`<tr><td data-label="Scadenza">${p.scadenza?fmtDate(p.scadenza):'—'}</td><td data-label="Tipo">${p.cat==='inarcassa'?'<span class="tag ina">Inarcassa</span>':'<span class="tag imp">Imposte</span>'}</td><td data-label="Note" style="color:var(--muted)">${esc(p.note||'—')}</td><td class="num" data-label="Importo" style="color:var(--amber)">${eur(+p.importo||0)}</td><td data-label=""><button class="mini-btn del" onclick="delPrevisto('${p.id}')">🗑</button></td></tr>`).join('')}
+    <tr><td colspan="3"><b>Totale previsto</b></td><td class="num"><b style="color:var(--amber)">${eur(prevTot)}</b></td><td></td></tr>
+    </tbody></table>
+    <div class="kpi-grid" style="margin-top:14px">
+      <div class="kpi"><div class="lbl">Imposte previste</div><div class="val" style="font-size:20px">${eur(prevImposte)}</div></div>
+      <div class="kpi violet"><div class="lbl">Inarcassa prevista</div><div class="val" style="font-size:20px">${eur(prevInarcassa)}</div></div>
+      <div class="kpi ${copertura>0?'red':'green'}"><div class="lbl">${copertura>0?'Mancano sul conto':'Coperto dal conto'}</div><div class="val" style="font-size:20px">${eur(Math.abs(copertura))}</div><div class="sub">saldo ${eur(saldo)} vs previsto ${eur(prevTot)}</div></div>
+    </div>`}
   </div>
   <div class="card"><div class="card-head"><h3>💸 Movimenti del conto</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-sm" onclick="openMovimento('pagamento','imposte')">− Pagamento imposte</button><button class="btn-sm" style="background:var(--violet)" onclick="openMovimento('pagamento','inarcassa')">− Pagamento Inarcassa</button><button class="btn-sm btn-ghost" onclick="openMovimento('deposito','altro')">+ Deposito</button><button class="btn-sm btn-ghost" onclick="openMovimento('prelievo','altro')">− Prelievo</button></div></div>
     <table class="rtable"><thead><tr><th>Data</th><th>Movimento</th><th class="num">Importo</th><th class="num">Saldo</th><th></th></tr></thead><tbody>
@@ -670,6 +697,23 @@ function saveMovimento(tipo){
   save();closeModal();render();toast('Movimento registrato');
 }
 function delMovimento(id){W().movimenti=W().movimenti.filter(m=>m.id!==id);save();render();}
+function openPrevisto(){const y=W().anno;
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>Importo previsto da pagare</h3><button class="close-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><div class="form-grid">
+      <div class="fld"><label>Tipo</label><select id="pv_cat"><option value="imposte">Imposte (F24)</option><option value="inarcassa">Inarcassa</option></select></div>
+      <div class="fld"><label>Scadenza</label><input id="pv_scad" type="date" value="${y}-12-31"></div>
+      <div class="fld"><label>Importo previsto (€)</label><input id="pv_imp" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="fld" style="grid-column:1/-1"><label>Note</label><input id="pv_note" placeholder="es. conguaglio Inarcassa, saldo imposte…"></div>
+    </div><p style="font-size:12px;color:var(--muted);margin-top:6px">Questo importo è solo una previsione: non verrà inserito nei movimenti del conto.</p></div>
+    <div class="modal-foot"><button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button><button class="btn-sm" onclick="savePrevisto()">Salva previsione</button></div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+function savePrevisto(){const imp=+document.getElementById('pv_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
+  const ci=W().contoImposte;if(!ci.previsti)ci.previsti=[];
+  ci.previsti.push({id:uid(),cat:document.getElementById('pv_cat').value,scadenza:document.getElementById('pv_scad').value||'',importo:imp,note:document.getElementById('pv_note').value.trim()});
+  save();closeModal();render();toast('Previsione aggiunta');}
+function delPrevisto(id){const ci=W().contoImposte;ci.previsti=(ci.previsti||[]).filter(p=>p.id!==id);save();render();}
 
 /* ============ ORDINARIO MENSILE (fabbisogno fisso + progressivo) ============ */
 function renderOrdinario(el){
@@ -939,8 +983,27 @@ function renderStat(el){
   const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
   let cum=0;const bonusMens=MESI.map(m=>{cum+=mensile;return{label:m.slice(0,3),value:cum};});
   const comp=(w.speseMensili||[]).filter(x=>x.tipo==='spesa').map(x=>({label:x.nome,value:x.importo})).sort((a,b)=>b.value-a.value);
+  const fab=w.fabbisognoMensile||0;
+  const fuoriMap=speseFuori2500PerMese();const fuoriKeys=Object.keys(fuoriMap).sort();const fuoriVals=fuoriKeys.map(k=>fuoriMap[k]);
+  const insights=[];
+  if(fuoriKeys.length>=1){
+    const totF=fuoriVals.reduce((s,v)=>s+v,0);const media=totF/fuoriKeys.length;
+    insights.push(`In media spendi <b>${eur(media)}/mese</b> dai bonus, oltre i ${eur(fab)} fissi (${fuoriKeys.length} mes${fuoriKeys.length===1?'e':'i'} con dati).`);
+    const mx=Math.max(...fuoriVals),mn=Math.min(...fuoriVals);
+    insights.push(`Mese più caro: <b>${monthLabel(fuoriKeys[fuoriVals.indexOf(mx)])}</b> (${eur(mx)}); più contenuto: <b>${monthLabel(fuoriKeys[fuoriVals.indexOf(mn)])}</b> (${eur(mn)}).`);
+    if(fuoriKeys.length>=2){const last=fuoriVals[fuoriVals.length-1],prev=fuoriVals[fuoriVals.length-2];const diff=last-prev;insights.push(`Ultimo mese registrato vs precedente: ${diff>=0?'<b style="color:var(--red)">'+eur(diff)+' in più</b>':'<b style="color:var(--green)">'+eur(-diff)+' in meno</b>'}.`);}
+    const rim=mesiRimanenti();if(rim>0)insights.push(`Con questo ritmo, di qui a fine anno spenderesti circa <b>${eur(media*rim)}</b> dai bonus (${rim} mesi rimanenti).`);
+  }
+  const wkTot={};w.spese.forEach(s=>{const k=weekKey(s.data);wkTot[k]=(wkTot[k]||0)+s.importo;});const wkKeys=Object.keys(wkTot);
+  if(wkKeys.length>=1){const over=wkKeys.filter(k=>wkTot[k]>w.budgetSettimanale).length;const avgWk=wkKeys.reduce((s,k)=>s+wkTot[k],0)/wkKeys.length;
+    insights.push(`Budget settimanale: ${over} settiman${over===1?'a':'e'} su ${wkKeys.length} sopra i ${eur(w.budgetSettimanale)}; spesa media <b>${eur(avgWk)}</b>/settimana.`);}
+  if(!insights.length)insights.push('Registra qualche spesa e prelievo dai bonus: appena ci sarà uno storico, qui compariranno analisi e ragionamenti automatici sui tuoi numeri.');
   el.innerHTML=`
   ${pageHead('Statistiche','Grafici su fatturato, bonus e spese')}
+  <div class="card"><h3>🔎 Analisi automatica</h3><div class="desc">Ragionamenti sui tuoi numeri, aggiornati man mano che cresce lo storico</div>
+    <ul style="margin:6px 0 0;padding-left:18px;line-height:1.9;font-size:14px">${insights.map(i=>`<li>${i}</li>`).join('')}</ul></div>
+  <div class="card"><h3>📅 Spese oltre i ${eur(fab)} — storico mensile</h3><div class="desc">Quanto hai speso dai bonus ogni mese, fuori dai ${eur(fab)} fissi</div>
+    ${fuoriKeys.length?`<table class="rtable"><thead><tr><th>Mese</th><th class="num">Speso dai bonus</th></tr></thead><tbody>${fuoriKeys.map(k=>`<tr><td data-label="Mese"><b>${monthLabel(k)}</b></td><td class="num" data-label="Speso dai bonus" style="color:var(--violet)">${eur(fuoriMap[k])}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nessuna spesa dai bonus registrata.</div>'}</div>
   <div class="card"><h3>💰 Ripartizione del fatturato ${w.anno}</h3><div class="desc">Come si dividono i ${eur(t.compensi)} di compensi · rivalsa ${eur(t.integrativo)} gestita a parte</div>
     ${rip.length?svgHBars(rip):'<div class="empty">Nessuna fattura registrata.</div>'}</div>
   <div class="card"><h3>🎁 Salvadanai bonus — saldo attuale</h3><div class="desc">Totale disponibile ${eur(pots.reduce((s,p)=>s+p.saldo,0))}</div>
