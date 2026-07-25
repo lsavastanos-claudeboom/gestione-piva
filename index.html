@@ -32,7 +32,7 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
-html,body{max-width:100%;overflow-x:hidden}
+html,body{max-width:100%}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 button{font-family:inherit;cursor:pointer}
 input,select{font-family:inherit;font-size:14px}
@@ -166,7 +166,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 @media(min-width:900px){#fab{display:none}}
 @media(max-width:900px) and (min-width:641px){.sidebar{width:60px;padding:14px 6px}.brand b,.brand span,.nav button span:not(.ic),.side-foot .txt{display:none}.main{padding:18px}}
 @media(max-width:640px){
-  html,body{overflow-x:hidden;max-width:100%}
+  html,body{max-width:100%}
   .topbar{display:flex}
   .drawer-backdrop{display:block}
   .shell{flex-direction:column}
@@ -206,7 +206,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
   .modal-body{padding:18px}
   th,td{padding:8px 6px;font-size:13px}
   input,select,textarea{font-size:16px}
-  #fab{bottom:calc(72px + env(safe-area-inset-bottom));right:16px}
+  #fab{bottom:calc(18px + env(safe-area-inset-bottom));right:16px}
   table.rtable thead{display:none}
   table.rtable tr{display:block;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:4px 12px;background:var(--panel2)}
   table.rtable tr:hover td{background:none}
@@ -453,13 +453,14 @@ function mesiAnno(){const w=W();const now=new Date();const cy=now.getFullYear();
 function mesiRimanenti(){const w=W();const now=new Date();const cy=now.getFullYear();if(w.anno>cy)return 12;if(w.anno<cy)return 0;return 12-(now.getMonth()+1)+1;}
 function mesiBonusList(){const w=W();const anchor=w.bonusMensiliInizio||curMonthKey();const a=anchor.split('-').map(Number);const list=[];for(let m=a[1];m<=12;m++)list.push(a[0]+'-'+String(m).padStart(2,'0'));return list;}
 function mesiBonus(){return mesiBonusList().length;}
+function curBonusMese(){const list=mesiBonusList();const cm=curMonthKey();if(list.includes(cm))return cm;return cm<list[0]?list[0]:list[list.length-1];}
 function bonusPots(){
-  const w=W();const mesi=mesiBonus();const prel=w.prelieviBonus||[];
+  const w=W();const prel=w.prelieviBonus||[];const cm=curBonusMese();
   const prelPot=id=>prel.filter(p=>p.pot===id).reduce((s,p)=>s+p.importo,0);
   const anchorF=w.bonusFattureInizio||'9999-12-31';
   const bonusFatture=fattureAnno().filter(f=>(f.data||'')>=anchorF).reduce((s,f)=>s+(f.bonus||0),0);
   const pots=[{id:'fatture',nome:'Bonus da fatture',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture,prelievi:prelPot('fatture'),info:'progressivo iniziale + bonus delle fatture dal '+(w.bonusFattureInizio?fmtDate(w.bonusFattureInizio):'—')}];
-  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{pots.push({id:x.id,nome:x.nome,iniziale:x.saldoIniziale||0,accrediti:(x.importo||0)*mesi,prelievi:prelPot(x.id),mensile:x.importo,info:eur(x.importo)+'/mese × '+mesi+' mesi'});});
+  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{const spMese=prel.filter(p=>p.pot===x.id&&p.mese===cm).reduce((s,p)=>s+p.importo,0);pots.push({id:x.id,nome:x.nome,iniziale:0,accrediti:(x.importo||0),prelievi:spMese,mensile:x.importo,mese:cm,info:eur(x.importo)+'/mese · '+monthLabel(cm)});});
   pots.forEach(p=>p.saldo=p.iniziale+p.accrediti-p.prelievi);
   return pots;
 }
@@ -776,7 +777,7 @@ function renderBonus(el){
     </div>
     ${rim>0?svgBars(remMesi.map(m=>({label:MESI[m-1].slice(0,3),value:mediaMese,color:'#9085e9'}))):'<div class="empty">Anno concluso.</div>'}
   </div>
-  <div class="card"><h3>🐷 Salvadanai</h3><div class="desc">I bonus mensili si accumulano da ${monthLabel(w.bonusMensiliInizio||curMonthKey())} (${mesiBonus()} mesi completati). Modifica gli importi mensili nella composizione in “Ordinario mensile”.</div>
+  <div class="card"><h3>🐷 Salvadanai</h3><div class="desc">I bonus mensili mostrano il valore del mese in corso (${monthLabel(curBonusMese())}), non il progressivo. Il monte fatture invece è cumulativo. Modifica gli importi mensili nella composizione in “Ordinario mensile”; i singoli mesi sono nel calendario qui sotto.</div>
     <table class="rtable"><thead><tr><th>Salvadanaio</th><th class="num">Iniziale</th><th class="num">Accreditato</th><th class="num">Prelevato</th><th class="num">Saldo</th></tr></thead><tbody>
     ${pots.map(p=>`<tr><td data-label="Salvadanaio" style="text-align:left"><b>${esc(p.nome)}</b><br><span style="font-size:11px;color:var(--muted)">${esc(p.info||'')}</span></td>
       <td class="num" data-label="Iniziale">${eur(p.iniziale)}</td><td class="num" data-label="Accreditato" style="color:var(--green)">${eur(p.accrediti)}</td>
