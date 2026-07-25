@@ -907,11 +907,12 @@ function renderBonus(el){
   <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi</h3>
     <div class="desc">Congela una parte del monte da tenere ferma (che non spendi): la proiezione mensile userà solo il resto. Le fatture future aumenteranno il monte; i bonus mensili sono a parte.</div>
     <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px;margin-bottom:10px">
-        <span>❄️ Importo da tenere fermo: <b id="freezeVal" style="color:var(--txt)">${eur(freeze)}</b></span>
-        <span style="color:var(--muted)">Monte totale ${eur(potFat.saldo)}</span>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+        <span style="font-size:12px;color:var(--muted)">❄️ Tengo fermo<br><b id="freezeVal" style="color:var(--txt);font-size:19px">${eur(freeze)}</b></span>
+        <span style="font-size:12px;color:var(--muted);text-align:right">💸 Disponibile per i mesi<br><b id="freezeDisp" style="color:var(--violet);font-size:19px">${eur(Math.max(0,potFat.saldo-freeze))}</b></span>
       </div>
-      <input type="range" id="bonusFreezeSlider" aria-label="Importo del monte bonus da tenere fermo" min="0" max="${Math.max(0,Math.round(potFat.saldo))}" step="10" value="${Math.round(freeze)}" oninput="setBonusFreeze(this.value)" style="width:100%;accent-color:#3987e5">
+      <input type="range" id="bonusFreezeSlider" aria-label="Importo del monte bonus da tenere fermo" min="0" max="${Math.max(0,Math.round(potFat.saldo))}" step="100" value="${Math.round(freeze)}" oninput="setBonusFreeze(this.value)" style="width:100%;accent-color:#3987e5">
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">Monte totale ${eur(potFat.saldo)} · lo slider si muove di 100 € per volta</div>
     </div>
     <div id="spendBody">${spendBonusInner()}</div>
   </div>
@@ -955,7 +956,7 @@ function spendBonusInner(){
   </div>
   ${rim>0?svgBars(remMesi.map(m=>({label:MESI[m-1].slice(0,3),value:media,color:'#9085e9'}))):'<div class="empty">Anno concluso.</div>'}`;
 }
-function setBonusFreeze(v){const w=W();const potFat=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;w.bonusFreeze=Math.min(Math.max(0,+v||0),Math.max(0,potFat));save();const fv=document.getElementById('freezeVal');if(fv)fv.textContent=eur(w.bonusFreeze);const sb=document.getElementById('spendBody');if(sb)sb.innerHTML=spendBonusInner();}
+function setBonusFreeze(v){const w=W();const potFat=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;w.bonusFreeze=Math.min(Math.max(0,+v||0),Math.max(0,potFat));save();const fv=document.getElementById('freezeVal');if(fv)fv.textContent=eur(w.bonusFreeze);const fd=document.getElementById('freezeDisp');if(fd)fd.textContent=eur(Math.max(0,potFat-w.bonusFreeze));const sb=document.getElementById('spendBody');if(sb)sb.innerHTML=spendBonusInner();}
 function setBonusRiserva(){W().bonusRiserva=+document.getElementById('bonusRis').value||0;save();render();toast('Riserva aggiornata');}
 function openPrelievoBonus(prePot,preMese){
   const w=W();const mesiOpts=mesiBonusList();const dm=preMese||curMonthKey();
