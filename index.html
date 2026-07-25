@@ -74,7 +74,8 @@ a{color:var(--accent)}
 .shell{display:flex;min-height:100vh}
 .sidebar{width:236px;background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
 .brand{display:flex;align-items:center;gap:10px;padding:0 8px 18px;margin-bottom:8px;border-bottom:1px solid var(--line)}
-.brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--violet));display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+.brand .logo{width:36px;height:36px;border-radius:10px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.brand .logo svg{width:100%;height:100%;display:block}
 .brand b{font-size:15px}.brand span{display:block;font-size:11px;color:var(--muted)}
 .nav{display:flex;flex-direction:column;gap:3px;margin-top:8px;flex:1}
 .nav button{display:flex;align-items:center;gap:11px;background:none;border:none;color:var(--muted);padding:9px 12px;border-radius:9px;font-size:14px;text-align:left;transition:.12s}
@@ -237,7 +238,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <body>
 <div id="cloudlogin" style="display:none">
   <div class="login-card">
-    <div class="brand" style="justify-content:center;border:none;padding-bottom:8px"><div class="logo">€</div><div style="text-align:left"><b>HopHop Budget</b><span>accesso cloud</span></div></div>
+    <div class="brand" style="justify-content:center;border:none;padding-bottom:8px"><div class="logo"><svg viewBox="0 0 512 512"><rect width="512" height="512" fill="#2f7ff0"/><circle cx="150" cy="372" r="40" fill="#fff" opacity=".5"/><circle cx="300" cy="248" r="150" fill="#fff"/><text x="300" y="312" font-size="205" font-weight="800" text-anchor="middle" fill="#2f7ff0" font-family="Arial,Helvetica,sans-serif">€</text></svg></div><div style="text-align:left"><b>HopHop Budget</b><span>accesso cloud</span></div></div>
     <p id="cloudMsg">Accedi per sincronizzare i dati tra PC e iPhone</p>
     <input type="email" id="cloudEmail" class="cloud-in" placeholder="Email" autocomplete="username" inputmode="email">
     <input type="password" id="cloudPass" class="cloud-in" placeholder="Password" autocomplete="current-password">
@@ -248,7 +249,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 </div>
 <div id="login">
   <div class="login-card">
-    <div class="brand" style="justify-content:center;border:none;padding-bottom:8px"><div class="logo">€</div><div style="text-align:left"><b>HopHop Budget</b><span>accesso privato</span></div></div>
+    <div class="brand" style="justify-content:center;border:none;padding-bottom:8px"><div class="logo"><svg viewBox="0 0 512 512"><rect width="512" height="512" fill="#2f7ff0"/><circle cx="150" cy="372" r="40" fill="#fff" opacity=".5"/><circle cx="300" cy="248" r="150" fill="#fff"/><text x="300" y="312" font-size="205" font-weight="800" text-anchor="middle" fill="#2f7ff0" font-family="Arial,Helvetica,sans-serif">€</text></svg></div><div style="text-align:left"><b>HopHop Budget</b><span>accesso privato</span></div></div>
     <p>Seleziona l'utenza (una partita IVA) e inserisci il PIN</p>
     <div class="user-choices" id="userChoices"></div>
     <input type="password" id="pinInput" class="pin-input" placeholder="••••" maxlength="8" inputmode="numeric" autocomplete="off">
@@ -262,7 +263,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand"><div class="logo">€</div><div><b>HopHop Budget</b><span id="brandYear">2026</span></div></div>
+    <div class="brand"><div class="logo"><svg viewBox="0 0 512 512"><rect width="512" height="512" fill="#2f7ff0"/><circle cx="150" cy="372" r="40" fill="#fff" opacity=".5"/><circle cx="300" cy="248" r="150" fill="#fff"/><text x="300" y="312" font-size="205" font-weight="800" text-anchor="middle" fill="#2f7ff0" font-family="Arial,Helvetica,sans-serif">€</text></svg></div><div><b>HopHop Budget</b><span id="brandYear">2026</span></div></div>
     <nav class="nav" id="nav">
       <button data-v="dashboard" class="active"><span class="ic">◧</span><span>Dashboard</span></button>
       <button data-v="fatture"><span class="ic">🧾</span><span>Fatture</span></button>
@@ -355,6 +356,7 @@ function normalize(p){
     return nw;
   });}
   while(st.workspaces.length<2)st.workspaces.push(newWorkspace());
+  st._ts=p._ts||0;
   return st;
 }
 function migrateFattura(f){
@@ -368,7 +370,7 @@ function migrateFattura(f){
     acc:{imposte:acc.imposte||0,integrativo:acc.integrativo||f.rivalsa||0,soggettivo:acc.soggettivo||acc.contributi||0,iva:acc.iva||0,versareConto:versare,totale:versare},
     netto:(f.netto!=null)?f.netto:comp-(acc.imposte||0)});
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(state));scheduleCloud();}
+function save(){state._ts=Date.now();localStorage.setItem(KEY,JSON.stringify(state));scheduleCloud();}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 let currentUser=null;
 function W(){return state.workspaces[currentUser];}
@@ -451,20 +453,25 @@ function goTo(v){view=v;document.querySelectorAll('#nav button').forEach(x=>x.cl
 /* ============ AGGREGAZIONI ============ */
 function totali(){
   const fs=fattureAnno();let compensi=0,fatturato=0,imposte=0,soggettivo=0,integrativo=0,iva=0,versare=0,bonus=0,ordinarioAllocato=0,incassato=0;
-  fs.forEach(f=>{compensi+=f.compenso||0;fatturato+=f.totaleFattura||0;imposte+=f.acc.imposte||0;soggettivo+=f.acc.soggettivo||0;integrativo+=f.acc.integrativo||0;iva+=f.acc.iva||0;versare+=fVersare(f);bonus+=f.bonus||0;if(f.incassata)incassato+=f.totaleFattura||0;(f.allocazioni||[]).forEach(a=>ordinarioAllocato+=a.importo);});
+  fs.forEach(f=>{const acc=f.acc||{};compensi+=f.compenso||0;fatturato+=f.totaleFattura||0;imposte+=acc.imposte||0;soggettivo+=acc.soggettivo||0;integrativo+=acc.integrativo||0;iva+=acc.iva||0;versare+=fVersare(f);bonus+=f.bonus||0;if(f.incassata)incassato+=f.totaleFattura||0;(f.allocazioni||[]).forEach(a=>ordinarioAllocato+=a.importo);});
   return{compensi,fatturato,lordo:fatturato,imposte,soggettivo,integrativo,iva,versare,bonus,ordinarioAllocato,incassato,nFatture:fs.length};
 }
 function ordinarioPerMese(){const map={};fattureAnno().forEach(f=>(f.allocazioni||[]).forEach(a=>{map[a.mese]=(map[a.mese]||0)+a.importo;}));return map;}
 function spesePerMese(mese){return W().spese.filter(s=>(s.data||'').slice(0,7)===mese).reduce((t,s)=>t+s.importo,0);}
+/* Filtri per anno attivo (coerenti con fattureAnno) */
+function inAnno(d){return (d||'').slice(0,4)===String(W().anno);}
+function movimentiAnno(){return (W().movimenti||[]).filter(m=>inAnno(m.data));}
+function prelieviAnno(){return (W().prelieviBonus||[]).filter(p=>inAnno(p.data));}
+function speseAnno(){return (W().spese||[]).filter(s=>inAnno(s.data));}
 function isMonthlyPot(id){return (W().speseMensili||[]).some(x=>x.tipo==='bonus'&&x.id===id);}
 /* Spese dei bonus "oltre i 2500": prelievi dai monti iniziale/fatture (NON dai bonus mensili tipo1/tipo2, che rientrano nei 2500). Per mese di sostenimento (data). */
-function speseFuori2500PerMese(){const map={};(W().prelieviBonus||[]).forEach(p=>{if(isMonthlyPot(p.pot))return;const k=(p.data||'').slice(0,7);if(k)map[k]=(map[k]||0)+p.importo;});return map;}
-function speseFuori2500Mese(mese){return (W().prelieviBonus||[]).filter(p=>!isMonthlyPot(p.pot)&&(p.data||'').slice(0,7)===mese).reduce((s,p)=>s+p.importo,0);}
+function speseFuori2500PerMese(){const map={};prelieviAnno().forEach(p=>{if(isMonthlyPot(p.pot))return;const k=(p.data||'').slice(0,7);if(k)map[k]=(map[k]||0)+p.importo;});return map;}
+function speseFuori2500Mese(mese){return prelieviAnno().filter(p=>!isMonthlyPot(p.pot)&&(p.data||'').slice(0,7)===mese).reduce((s,p)=>s+p.importo,0);}
 function contoLedger(){
   const w=W();const ci=w.contoImposte;const rows=[];
   rows.push({data:'',desc:'Saldo iniziale',importo:+ci.saldoIniziale||0,tipo:'init'});
   fattureAnno().forEach(f=>{if(ci.soloIncassate&&!f.incassata)return;const v=fVersare(f);rows.push({data:f.data,desc:'Accantonamento · '+(f.numero||'fatt.')+(f.cliente?(' · '+f.cliente):''),importo:v,tipo:'accredito',pending:!f.incassata});});
-  w.movimenti.forEach(m=>{const seg=m.tipo==='deposito'?1:-1;const cat=m.categoria?({inarcassa:'Inarcassa',imposte:'Imposte F24',altro:'Altro'}[m.categoria]||'')+' · ':'';rows.push({data:m.data,desc:(m.tipo==='pagamento'?('Pagamento '+cat):m.tipo==='deposito'?'Deposito · ':'Prelievo · ')+(m.note||''),importo:seg*m.importo,tipo:m.tipo,cat:m.categoria,id:m.id});});
+  movimentiAnno().forEach(m=>{const seg=m.tipo==='deposito'?1:-1;const cat=m.categoria?({inarcassa:'Inarcassa',imposte:'Imposte F24',altro:'Altro'}[m.categoria]||'')+' · ':'';rows.push({data:m.data,desc:(m.tipo==='pagamento'?('Pagamento '+cat):m.tipo==='deposito'?'Deposito · ':'Prelievo · ')+(m.note||''),importo:seg*m.importo,tipo:m.tipo,cat:m.categoria,id:m.id});});
   rows.sort((a,b)=>{if(a.tipo==='init')return -1;if(b.tipo==='init')return 1;return (a.data||'').localeCompare(b.data||'');});
   let run=0;rows.forEach(r=>{run+=r.importo;r.saldo=run;});
   return rows;
@@ -472,14 +479,16 @@ function contoLedger(){
 function contoSaldo(){const l=contoLedger();return l.length?l[l.length-1].saldo:0;}
 function mesiAnno(){const w=W();const now=new Date();const cy=now.getFullYear();if(w.anno<cy)return 12;if(w.anno>cy)return 0;return now.getMonth()+1;}
 function mesiRimanenti(){const w=W();const now=new Date();const cy=now.getFullYear();if(w.anno>cy)return 12;if(w.anno<cy)return 0;return 12-(now.getMonth()+1)+1;}
-function mesiBonusList(){const w=W();const anchor=w.bonusMensiliInizio||curMonthKey();const a=anchor.split('-').map(Number);const list=[];for(let m=a[1];m<=12;m++)list.push(a[0]+'-'+String(m).padStart(2,'0'));return list;}
+function mesiBonusList(){const w=W();const y=w.anno;const now=new Date();let startM;
+  if(y!==now.getFullYear())startM=1;
+  else{const a=w.bonusMensiliInizio;startM=(a&&a.slice(0,4)===String(y))?(+a.slice(5,7)||now.getMonth()+1):now.getMonth()+1;}
+  const list=[];for(let m=startM;m<=12;m++)list.push(y+'-'+String(m).padStart(2,'0'));return list;}
 function mesiBonus(){return mesiBonusList().length;}
-function curBonusMese(){const list=mesiBonusList();const cm=curMonthKey();if(list.includes(cm))return cm;return cm<list[0]?list[0]:list[list.length-1];}
+function curBonusMese(){const w=W();const list=mesiBonusList();const now=new Date();if(w.anno===now.getFullYear()){const cm=curMonthKey();if(list.includes(cm))return cm;}return w.anno<now.getFullYear()?list[list.length-1]:list[0];}
 function bonusPots(){
-  const w=W();const prel=w.prelieviBonus||[];const cm=curBonusMese();
+  const w=W();const prel=prelieviAnno();const cm=curBonusMese();
   const prelPot=id=>prel.filter(p=>p.pot===id).reduce((s,p)=>s+p.importo,0);
-  const anchorF=w.bonusFattureInizio||'9999-12-31';
-  const bonusFatture=fattureAnno().filter(f=>(f.data||'')>=anchorF).reduce((s,f)=>s+(f.bonus||0),0);
+  const bonusFatture=fattureAnno().reduce((s,f)=>s+(f.bonus||0),0);
   const pots=[
     {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture,prelievi:prelPot('fatture')+prelPot('iniziale'),info:'riserva iniziale + bonus delle fatture'}
   ];
@@ -519,7 +528,7 @@ function renderDashboard(el){
   const budgetWk=w.budgetSettimanale;const wkPerc=budgetWk?Math.min(100,speseWk/budgetWk*100):0;
   const saldo=contoSaldo();
   const pots=bonusPots();const bonusTot=pots.reduce((s,p)=>s+p.saldo,0);
-  const wkMapD={};w.spese.forEach(s=>{const k=weekKey(s.data);if(!wkMapD[k])wkMapD[k]={tot:0,sample:s.data};wkMapD[k].tot+=s.importo;});
+  const wkMapD={};speseAnno().forEach(s=>{const k=weekKey(s.data);if(!wkMapD[k])wkMapD[k]={tot:0,sample:s.data};wkMapD[k].tot+=s.importo;});
   const wkDataD=Object.keys(wkMapD).sort().slice(-8).map(k=>({label:weekRange(wkMapD[k].sample).split('–')[0].trim(),value:wkMapD[k].tot}));
   const moMapD=speseFuori2500PerMese();
   const moKeysD=Object.keys(moMapD).sort();
@@ -531,7 +540,7 @@ function renderDashboard(el){
   const speseMeseCorr=spesePerMese(cm);
   const progRow=(label,speso,bdg)=>{const pc=bdg?Math.min(100,speso/bdg*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${label}</span><span style="color:${speso>bdg?'var(--red)':'var(--muted)'}">${eur(speso)} / ${eur(bdg)}</span></div><div class="prog ${pc>=100?'over':pc>=80?'warn':''}"><span style="width:${pc}%"></span></div></div>`;};
   const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:mb.importo};});
-  const recentFuori=(w.prelieviBonus||[]).filter(p=>!isMonthlyPot(p.pot)).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
+  const recentFuori=prelieviAnno().filter(p=>!isMonthlyPot(p.pot)).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
   const potLabel=id=>'Monte bonus';
   const donutColors=['#d95926','#c98500'];
   const smSel=statoMeseSel();
@@ -541,7 +550,7 @@ function renderDashboard(el){
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
   <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
   <div class="card"><div class="card-head"><h3>📊 Stato del mese — <span id="statoMeseLabel">${monthLabel(smSel.sel)}${dashMeseOffset===0?'':' (in anticipo)'}</span></h3>
-    ${smSel.maxOff>0?`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--muted)">scorri i mesi</span><input type="range" id="statoMeseSlider" min="0" max="${smSel.maxOff}" step="1" value="${dashMeseOffset}" oninput="setStatoMese(this.value)" style="width:130px;accent-color:var(--violet)"></div>`:''}</div>
+    ${smSel.maxOff>0?`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--muted)">scorri i mesi</span><input type="range" id="statoMeseSlider" aria-label="Scorri i mesi successivi" min="0" max="${smSel.maxOff}" step="1" value="${dashMeseOffset}" oninput="setStatoMese(this.value)" style="width:130px;accent-color:var(--violet)"></div>`:''}</div>
     <div class="desc">Spesa settimanale, bonus mensili tipo 1/2 e monte bonus accumulato · usa lo slider per vedere i mesi successivi in anticipo</div>
     <div id="statoMeseBody">${statoMeseBodyHTML(smSel.sel)}</div>
   </div>
@@ -684,14 +693,15 @@ document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==
 function renderConto(el){
   const w=W();const ci=w.contoImposte;const ledger=contoLedger();const saldo=contoSaldo();
   const accreditiTot=ledger.filter(r=>r.tipo==='accredito').reduce((s,r)=>s+r.importo,0);
-  const pagInarcassa=w.movimenti.filter(m=>m.tipo==='pagamento'&&m.categoria==='inarcassa').reduce((s,m)=>s+m.importo,0);
-  const pagImposte=w.movimenti.filter(m=>m.tipo==='pagamento'&&m.categoria==='imposte').reduce((s,m)=>s+m.importo,0);
+  const movAnno=movimentiAnno();
+  const pagInarcassa=movAnno.filter(m=>m.tipo==='pagamento'&&m.categoria==='inarcassa').reduce((s,m)=>s+m.importo,0);
+  const pagImposte=movAnno.filter(m=>m.tipo==='pagamento'&&m.categoria==='imposte').reduce((s,m)=>s+m.importo,0);
   const pendingTot=ledger.filter(r=>r.tipo==='accredito'&&r.pending).reduce((s,r)=>s+r.importo,0);
   const y=w.anno;
   const scad=[{d:'30/06',t:'Inarcassa',cat:'inarcassa',data:y+'-06-30'},{d:'20/07',t:'Imposte (saldo + acconto)',cat:'imposte',data:y+'-07-20'},{d:'30/09',t:'Inarcassa',cat:'inarcassa',data:y+'-09-30'},{d:'30/11',t:'Imposte (2° acconto)',cat:'imposte',data:y+'-11-30'},{d:'31/12',t:'Conguaglio Inarcassa',cat:'inarcassa',data:y+'-12-31'}];
   const previstiAll=(ci.previsti||[]).slice();
-  const paidMov=w.movimenti.filter(m=>m.tipo==='pagamento');const usedMov=new Set();
-  scad.forEach(s=>{const sd=new Date(s.data+'T00:00:00');let best=null,bd=1e9;paidMov.forEach(m=>{if(usedMov.has(m.id)||m.categoria!==s.cat)return;const diff=Math.abs(new Date((m.data||s.data)+'T00:00:00')-sd)/86400000;if(diff<=45&&diff<bd){bd=diff;best=m;}});if(best){usedMov.add(best.id);s.pagato=best;}});
+  const paidMov=movAnno.filter(m=>m.tipo==='pagamento');const usedMov=new Set();
+  scad.forEach(s=>{const sd=new Date(s.data+'T00:00:00');let best=null,bd=1e9;paidMov.forEach(m=>{if(usedMov.has(m.id)||m.categoria!==s.cat)return;const diff=Math.abs(new Date((m.data||s.data)+'T00:00:00')-sd)/86400000;if(diff<=60&&diff<bd){bd=diff;best=m;}});if(best){usedMov.add(best.id);s.pagato=best;}});
   const usedPrev=new Set();
   scad.forEach(s=>{const p=previstiAll.find(pv=>!usedPrev.has(pv.id)&&pv.cat===s.cat&&pv.scadenza===s.data);if(p){usedPrev.add(p.id);s.previsto=p;}});
   const extraPrev=previstiAll.filter(p=>!usedPrev.has(p.id)).map(p=>({t:p.cat==='inarcassa'?'Inarcassa (previsto)':'Imposte (previste)',cat:p.cat,data:p.scadenza||(y+'-12-31'),previsto:p,custom:true}));
@@ -706,6 +716,7 @@ function renderConto(el){
     <div class="conto-main">
       <div class="lbl">Saldo attuale del conto imposte</div>
       <div class="big" style="color:${saldo<0?'var(--red)':'var(--green)'}">${eur(saldo)}</div>
+      ${(!ci.soloIncassate&&pendingTot)?`<div style="font-size:12px;color:var(--amber);margin-top:2px">⚠️ include ${eur(pendingTot)} da fatture non ancora incassate · disponibile ora ${eur(saldo-pendingTot)}</div>`:''}
       <div style="font-size:12px;color:var(--muted)">Saldo iniziale + accantonamenti dalle fatture − pagamenti (Inarcassa + imposte)</div>
       <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Saldo iniziale</label><input type="number" inputmode="decimal" step="0.01" id="saldoIni" value="${ci.saldoIniziale||0}"><button class="mini-btn" onclick="setSaldoIniziale()">Salva</button></div>
       <label class="chk" style="margin-top:12px"><input type="checkbox" id="soloInc" ${ci.soloIncassate?'checked':''} onchange="toggleSoloIncassate()"> Conta solo gli accantonamenti delle fatture <b>incassate</b></label>
@@ -823,7 +834,7 @@ function renderOrdinario(el){
 
 /* ============ SPESE ============ */
 function weeklyRegistroHTML(limitWeeks){
-  const w=W();const spese=w.spese.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const w=W();const spese=speseAnno().slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   const byWeek={};spese.forEach(s=>{const wk=weekKey(s.data);(byWeek[wk]=byWeek[wk]||[]).push(s);});
   let weeks=Object.keys(byWeek).sort().reverse();if(limitWeeks)weeks=weeks.slice(0,limitWeeks);
   const budget=w.budgetSettimanale;
@@ -897,7 +908,7 @@ function renderBonus(el){
         <span>❄️ Importo da tenere fermo: <b id="freezeVal" style="color:var(--txt)">${eur(freeze)}</b></span>
         <span style="color:var(--muted)">Monte totale ${eur(potFat.saldo)}</span>
       </div>
-      <input type="range" id="bonusFreezeSlider" min="0" max="${Math.max(0,Math.round(potFat.saldo))}" step="10" value="${Math.round(freeze)}" oninput="setBonusFreeze(this.value)" style="width:100%;accent-color:#3987e5">
+      <input type="range" id="bonusFreezeSlider" aria-label="Importo del monte bonus da tenere fermo" min="0" max="${Math.max(0,Math.round(potFat.saldo))}" step="10" value="${Math.round(freeze)}" oninput="setBonusFreeze(this.value)" style="width:100%;accent-color:#3987e5">
     </div>
     <div id="spendBody">${spendBonusInner()}</div>
   </div>
@@ -963,17 +974,22 @@ function openPrelievoBonus(prePot,preMese){
 function refreshPbPot(){const w=W();const sel=document.getElementById('pb_pot');const meseEl=document.getElementById('pb_mese');if(!sel||!meseEl)return;const dm=meseEl.value;const cur=sel.value;const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus',saldo:0};const opts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];(w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);const disp=(mb.importo||0)-speso;if(disp>0||mb.id===cur)opts.push({id:mb.id,nome:mb.nome,saldo:disp});});sel.innerHTML=opts.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('');}
 function savePrelievoBonus(){
   const imp=+document.getElementById('pb_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
-  const mEl=document.getElementById('pb_mese');
-  W().prelieviBonus.push({id:uid(),data:document.getElementById('pb_data').value||todayISO(),pot:document.getElementById('pb_pot').value,mese:mEl?mEl.value:'',importo:imp,note:document.getElementById('pb_note').value.trim()});
-  save();closeModal();render();toast('Spesa registrata');
+  const mEl=document.getElementById('pb_mese');const pot=document.getElementById('pb_pot').value;const mese=mEl?mEl.value:'';
+  const w=W();let disp;
+  if(pot==='fatture'){disp=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;}
+  else{const mb=(w.speseMensili||[]).find(x=>x.id===pot);const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese).reduce((s,pr)=>s+pr.importo,0);disp=mb?(mb.importo||0)-speso:0;}
+  w.prelieviBonus.push({id:uid(),data:document.getElementById('pb_data').value||todayISO(),pot,mese,importo:imp,note:document.getElementById('pb_note').value.trim()});
+  save();closeModal();render();
+  if(imp>disp+0.001)toast('Registrata · attenzione: superi il disponibile ('+eur(disp)+') del salvadanaio',true);
+  else toast('Spesa registrata');
 }
 function delPrelievoBonus(id){const w=W();const i=w.prelieviBonus.findIndex(p=>p.id===id);if(i<0)return;const it=w.prelieviBonus[i];w.prelieviBonus.splice(i,1);save();render();showUndo('Spesa bonus eliminata',()=>{W().prelieviBonus.splice(Math.min(i,W().prelieviBonus.length),0,it);save();render();toast('Ripristinata');});}
 
 /* ============ PROIEZIONE / SCENARI ============ */
 function proietta(fatturato){
-  const w=W();const f=w.forfettario;const p=w.proiezione;
-  const reddito=fatturato*f.coefficiente/100;
-  const imposte=reddito*f.impostePerc/100;
+  const w=W();const p=w.proiezione;let reddito,imposte;
+  if(w.regimeAttivo==='ordinario'){const o=w.ordinario||{};reddito=fatturato;imposte=reddito*(((+o.aliquotaImposte||0)+(+o.contributi||0))/100);}
+  else{const f=w.forfettario;reddito=fatturato*f.coefficiente/100;imposte=reddito*f.impostePerc/100;}
   const utile=fatturato-imposte;
   const premio=utile-p.quotaOrdinaria;
   const bonusAnnuo=premio-p.accantonaAnnoSucc;       // X 2026: bonus annuo previsto
@@ -1079,9 +1095,9 @@ function renderStat(el){
   const w=W();const t=totali();const riservato=Object.values(ordinarioPerMese()).reduce((s,v)=>s+v,0);
   const pots=bonusPots();
   const rip=[{label:'Imposte',value:t.imposte,color:'#c98500'},{label:'Ordinario',value:riservato,color:'#199e70'},{label:'Bonus',value:t.bonus,color:'#9085e9'}].filter(d=>d.value>0);
-  const catMap={};w.spese.forEach(s=>{const c=s.categoria||'Altro';catMap[c]=(catMap[c]||0)+s.importo;});
+  const catMap={};speseAnno().forEach(s=>{const c=s.categoria||'Altro';catMap[c]=(catMap[c]||0)+s.importo;});
   const cats=Object.entries(catMap).map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value);
-  const wkMap={};w.spese.forEach(s=>{const k=weekKey(s.data);if(!wkMap[k])wkMap[k]={tot:0,sample:s.data};wkMap[k].tot+=s.importo;});
+  const wkMap={};speseAnno().forEach(s=>{const k=weekKey(s.data);if(!wkMap[k])wkMap[k]={tot:0,sample:s.data};wkMap[k].tot+=s.importo;});
   const wkData=Object.keys(wkMap).sort().slice(-8).map(k=>({label:weekRange(wkMap[k].sample).split('–')[0].trim(),value:wkMap[k].tot}));
   const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
   let cum=0;const bonusMens=MESI.map(m=>{cum+=mensile;return{label:m.slice(0,3),value:cum};});
@@ -1097,7 +1113,7 @@ function renderStat(el){
     if(fuoriKeys.length>=2){const last=fuoriVals[fuoriVals.length-1],prev=fuoriVals[fuoriVals.length-2];const diff=last-prev;insights.push(`Ultimo mese registrato vs precedente: ${diff>=0?'<b style="color:var(--red)">'+eur(diff)+' in più</b>':'<b style="color:var(--green)">'+eur(-diff)+' in meno</b>'}.`);}
     const rim=mesiRimanenti();if(rim>0)insights.push(`Con questo ritmo, di qui a fine anno spenderesti circa <b>${eur(media*rim)}</b> dai bonus (${rim} mesi rimanenti).`);
   }
-  const wkTot={};w.spese.forEach(s=>{const k=weekKey(s.data);wkTot[k]=(wkTot[k]||0)+s.importo;});const wkKeys=Object.keys(wkTot);
+  const wkTot={};speseAnno().forEach(s=>{const k=weekKey(s.data);wkTot[k]=(wkTot[k]||0)+s.importo;});const wkKeys=Object.keys(wkTot);
   if(wkKeys.length>=1){const over=wkKeys.filter(k=>wkTot[k]>w.budgetSettimanale).length;const avgWk=wkKeys.reduce((s,k)=>s+wkTot[k],0)/wkKeys.length;
     insights.push(`Budget settimanale: ${over} settiman${over===1?'a':'e'} su ${wkKeys.length} sopra i ${eur(w.budgetSettimanale)}; spesa media <b>${eur(avgWk)}</b>/settimana.`);}
   if(!insights.length)insights.push('Registra qualche spesa e prelievo dai bonus: appena ci sarà uno storico, qui compariranno analisi e ragionamenti automatici sui tuoi numeri.');
@@ -1165,9 +1181,9 @@ function renderImpostazioni(el){
   <div class="card"><h3>👤 Utenze di accesso</h3><div class="desc">Due utenze, una per ciascuna partita IVA.</div>
     <div class="form-grid">
       <div class="fld"><label>Utenza 1 — nome</label><input id="u0_nome" value="${esc(state.utenti[0].nome)}"></div>
-      <div class="fld"><label>Utenza 1 — PIN</label><input id="u0_pin" value="${esc(state.utenti[0].pin)}"></div>
+      <div class="fld"><label>Utenza 1 — PIN</label><div style="display:flex;gap:6px"><input id="u0_pin" type="password" inputmode="numeric" value="${esc(state.utenti[0].pin)}" style="flex:1"><button type="button" class="mini-btn" onclick="togglePwd('u0_pin')" aria-label="Mostra PIN">👁</button></div></div>
       <div class="fld"><label>Utenza 2 — nome</label><input id="u1_nome" value="${esc(state.utenti[1].nome)}"></div>
-      <div class="fld"><label>Utenza 2 — PIN</label><input id="u1_pin" value="${esc(state.utenti[1].pin)}"></div>
+      <div class="fld"><label>Utenza 2 — PIN</label><div style="display:flex;gap:6px"><input id="u1_pin" type="password" inputmode="numeric" value="${esc(state.utenti[1].pin)}" style="flex:1"><button type="button" class="mini-btn" onclick="togglePwd('u1_pin')" aria-label="Mostra PIN">👁</button></div></div>
     </div>
   </div>
   <div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap">
@@ -1199,8 +1215,9 @@ function saveSettings(){
   w.fabbisognoMensile=+document.getElementById('set_fab').value||0;
   w.riportoOrdinario=+document.getElementById('set_rip').value||0;
   w.budgetSettimanale=+document.getElementById('set_budget').value||0;
-  w.forfettario={coefficiente:+document.getElementById('for_coef').value,impostePerc:+document.getElementById('for_imp').value,aliquotaSostitutiva:+document.getElementById('for_sost').value};
-  w.ordinario={aliquotaImposte:+document.getElementById('ord_imp').value,contributi:+document.getElementById('ord_con').value,iva:+document.getElementById('ord_iva').value};
+  const dfF=newWorkspace().forfettario,dfO=newWorkspace().ordinario;
+  w.forfettario={coefficiente:+document.getElementById('for_coef').value||dfF.coefficiente,impostePerc:+document.getElementById('for_imp').value||dfF.impostePerc,aliquotaSostitutiva:+document.getElementById('for_sost').value||dfF.aliquotaSostitutiva};
+  w.ordinario={aliquotaImposte:+document.getElementById('ord_imp').value||dfO.aliquotaImposte,contributi:+document.getElementById('ord_con').value||dfO.contributi,iva:+document.getElementById('ord_iva').value||dfO.iva};
   state.utenti=[{nome:document.getElementById('u0_nome').value.trim()||'Utenza 1',pin:document.getElementById('u0_pin').value||'0000'},{nome:document.getElementById('u1_nome').value.trim()||'Utenza 2',pin:document.getElementById('u1_pin').value||'0000'}];
   save();
   document.getElementById('brandYear').textContent='Anno '+w.anno;
@@ -1209,7 +1226,8 @@ function saveSettings(){
   toast('Impostazioni salvate');render();
 }
 function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup-gestione-piva-'+todayISO()+'.json';a.click();}
-function importData(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{state=normalize(JSON.parse(r.result));save();toast('Dati importati');initApp();}catch(err){toast('File non valido',true);}};r.readAsText(file);}
+function togglePwd(id){const el=document.getElementById(id);if(el)el.type=(el.type==='password'?'text':'password');}
+function importData(e){const file=e.target.files[0];if(!file){return;}if(!confirm('Importare questo backup? Sostituirà TUTTI i dati attuali (fatture, spese, bonus) e anche nomi/PIN delle utenze. Operazione non annullabile.')){e.target.value='';return;}const r=new FileReader();r.onload=()=>{try{state=normalize(JSON.parse(r.result));save();toast('Dati importati');initApp();}catch(err){toast('File non valido',true);}};r.readAsText(file);}
 function resetAll(){if(confirm('Azzerare TUTTI i dati di TUTTE le utenze? Irreversibile.')){state=defaults();save();toast('Dati azzerati');initApp();}}
 
 /* ============ TOAST + INIT ============ */
@@ -1278,14 +1296,22 @@ async function loadCloud(){
   cloudMode=true;
   try{const {data,error}=await sb.from('app_state').select('data').eq('user_id',cloudUser.id).maybeSingle();
     if(error){console.warn(error);}
-    if(data&&data.data&&data.data.workspaces){state=normalize(data.data);localStorage.setItem(KEY,JSON.stringify(state));}
+    if(data&&data.data&&data.data.workspaces){
+      const cloudTs=+data.data._ts||0;const localTs=+state._ts||0;
+      if(cloudTs>=localTs){ // cloud è più recente (o pari): adottalo
+        state=normalize(data.data);localStorage.setItem(KEY,JSON.stringify(state));setSync('ok','sincronizzato'+syncTime());
+      }else{ // dati locali più recenti (modifiche offline): non sovrascrivere, ripubblica il locale
+        setSync('off','carico modifiche locali…');await pushCloud(true);
+      }
+    }
     else{await pushCloud(true);}
   }catch(e){console.warn(e);}
 }
+function syncTime(){try{const d=new Date();return ' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}catch(e){return '';}}
 async function pushCloud(silent){
   if(!sb||!cloudUser)return;
-  try{const {error}=await sb.from('app_state').upsert({user_id:cloudUser.id,data:state,updated_at:new Date().toISOString()});
-    if(error){setSync('err','errore sync');console.warn(error);}else{setSync('ok','sincronizzato');}
+  try{const ts=+state._ts||Date.now();const {error}=await sb.from('app_state').upsert({user_id:cloudUser.id,data:state,updated_at:new Date(ts).toISOString()});
+    if(error){setSync('err','errore sync');console.warn(error);}else{setSync('ok','sincronizzato'+syncTime());}
   }catch(e){setSync('err','offline');}
 }
 function scheduleCloud(){if(!sb||!cloudUser)return;setSync('off','salvataggio…');clearTimeout(saveTimer);saveTimer=setTimeout(()=>pushCloud(),1200);}
