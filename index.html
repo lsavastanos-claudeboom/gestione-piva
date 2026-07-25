@@ -491,38 +491,42 @@ function renderDashboard(el){
   const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+x.importo,0)||budgetWk*4;
   const speseMeseCorr=spesePerMese(cm);
   const progRow=(label,speso,bdg)=>{const pc=bdg?Math.min(100,speso/bdg*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${label}</span><span style="color:${speso>bdg?'var(--red)':'var(--muted)'}">${eur(speso)} / ${eur(bdg)}</span></div><div class="prog ${pc>=100?'over':pc>=80?'warn':''}"><span style="width:${pc}%"></span></div></div>`;};
-  const recentSpese=[
-    ...w.spese.map(s=>({data:s.data,label:(s.categoria||'Spesa')+(s.descrizione?(' · '+s.descrizione):''),importo:s.importo,tipo:'sett',id:s.id})),
-    ...(w.prelieviBonus||[]).map(p=>({data:p.data,label:'Bonus'+(p.note?(' · '+p.note):''),importo:p.importo,tipo:'bonus',id:p.id}))
-  ].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,6);
+  const potIniD=(pots.find(p=>p.id==='iniziale')||{saldo:0}).saldo;
+  const potFatD=(pots.find(p=>p.id==='fatture')||{saldo:0}).saldo;
+  const monteBonusTot=potIniD+potFatD;
+  const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:mb.importo};});
+  const recentFuori=(w.prelieviBonus||[]).filter(p=>!isMonthlyPot(p.pot)).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
+  const potLabel=id=>id==='iniziale'?'Iniziale':id==='fatture'?'Fatture':id;
+  const donutColors=['#d95926','#c98500'];
   const tetto=w.tettoForfettario||85000;const usato=t.compensi;const residuoTetto=tetto-usato;const tettoPerc=tetto?Math.min(100,usato/tetto*100):0;
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
   <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
-  <div class="card"><div class="card-head"><h3>➕ Aggiungi spesa</h3><button class="btn-sm" onclick="openQuickAdd()">+ Registra spesa</button></div>
-    <div class="desc">Spesa settimanale o dal bonus · qui sotto le ultime registrate</div>
-    ${recentSpese.length?`<table class="rtable"><tbody>${recentSpese.map(r=>`<tr><td data-label="Data" style="width:92px">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.label)} ${r.tipo==='bonus'?'<span class="tag ina">bonus</span>':'<span class="tag imp">settim.</span>'}</td><td class="num" data-label="Importo" style="color:${r.tipo==='bonus'?'var(--violet)':'var(--txt)'}">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="${r.tipo==='bonus'?`delPrelievoBonus('${r.id}')`:`delSpesa('${r.id}')`}">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nessuna spesa registrata. Usa “+ Registra spesa”.</div>'}
+  <div class="card"><h3>📊 Stato del mese — ${monthLabel(cm)}</h3>
+    <div class="desc">Spesa settimanale, bonus mensili tipo 1/2 e monte bonus accumulato</div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:space-around;align-items:start;margin:8px 0 2px">
+      <div style="text-align:center;min-width:118px">${svgDonut(budgetWk?speseWk/budgetWk:0,speseWk>budgetWk?'#f0616d':'#3987e5',eur0(speseWk),'/ '+eur0(budgetWk))}<div style="font-size:12px;color:var(--muted);margin-top:2px">🛒 Settimana corrente</div></div>
+      ${bonStato.map((b,i)=>`<div style="text-align:center;min-width:118px">${svgDonut(b.budget?b.speso/b.budget:0,b.speso>b.budget?'#f0616d':(donutColors[i]||'#9085e9'),eur0(b.speso),'/ '+eur0(b.budget))}<div style="font-size:12px;color:var(--muted);margin-top:2px">🎁 ${esc(b.nome)}</div></div>`).join('')}
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><div style="font-size:13px;color:var(--txt);font-weight:600">🎁 Monte bonus disponibile</div><div style="font-size:11px;color:var(--muted)">cumulativo iniziale ${eur(potIniD)} + da fatture ${eur(potFatD)}</div></div>
+      <div style="font-size:26px;font-weight:800;color:${monteBonusTot<0?'var(--red)':'var(--violet)'}">${eur(monteBonusTot)}</div>
+    </div>
   </div>
-  <div class="card"><h3>🧩 Quote flessibili dei ${eur(fab)} — ${monthLabel(cm)}</h3>
-    <div class="desc">Bonus tipo 1 e tipo 2: quote dei ${eur(fab)}/mese. Speso vs assegnato questo mese.</div>
-    ${monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return progRow('🎁 '+esc(mb.nome),sp,mb.importo);}).join('')}
-  </div>
-  <div class="card"><div class="card-head"><h3>🛒 Spese settimanali</h3><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>
-    <div class="desc">Ultime settimane · confronto con il budget settimanale</div>
-    ${weeklyRegistroHTML(5)}
-  </div>
-  <div class="card"><h3>📅 Spese oltre i ${eur(fab)} per mese</h3><div class="desc">Spese dai bonus (monte fatture/iniziale) sostenute ogni mese, al di fuori dei ${eur(fab)} fissi</div>
+  <div class="card"><div class="card-head"><h3>➕ Registra spesa</h3><button class="btn-sm" onclick="openQuickAdd()">+ Registra spesa</button></div>
+    <div class="desc">Registra una spesa di qualsiasi tipo · sotto le ultime 5 spese dai bonus (fuori dai ${eur(fab)} fissi) e l'andamento mensile</div>
     <div class="kpi-grid" style="margin:6px 0 16px">
       <div class="kpi violet"><div class="lbl">Totale ${w.anno}</div><div class="val" style="font-size:20px">${eur(totFuoriD)}</div></div>
       <div class="kpi"><div class="lbl">Media / mese</div><div class="val" style="font-size:20px">${eur(mediaFuoriD)}</div></div>
       <div class="kpi"><div class="lbl">Questo mese</div><div class="val" style="font-size:20px">${eur(fuoriCorrD)}</div></div>
     </div>
-    ${moDataD.length>=2?svgArea(moDataD,{color:'#9085e9',h:190}):moDataD.length?svgBars(moDataD,{color:'#9085e9',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}</div>
+    ${moDataD.length>=2?svgArea(moDataD,{color:'#9085e9',h:190}):moDataD.length?svgBars(moDataD,{color:'#9085e9',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}
+    ${recentFuori.length?`<table class="rtable" style="margin-top:16px"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div style="font-size:12px;color:var(--muted);margin-top:12px">Nessuna spesa dai bonus registrata finora.</div>'}
+  </div>
   <div style="display:flex;align-items:center;gap:12px;margin:30px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">📊 Panoramica ${w.anno}</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
   <div class="kpi-grid">
     <div class="kpi accent"><div class="lbl">🧾 Fatturato ${w.anno}</div><div class="val">${eur(t.compensi)}</div><div class="sub">${t.nFatture} fatture · con rivalsa ${eur(t.fatturato)}</div></div>
     <div class="kpi ${saldo<0?'red':''}"><div class="lbl">🏦 Saldo conto imposte</div><div class="val">${eur(saldo)}</div><div class="sub">liquidità per imposte e Inarcassa</div></div>
-    <div class="kpi violet"><div class="lbl">🎁 Bonus disponibili</div><div class="val">${eur(bonusTot)}</div><div class="sub">totale salvadanai (mensili + fatture)</div></div>
     <div class="kpi green"><div class="lbl">📆 Ordinario allocato</div><div class="val">${eur(t.ordinarioAllocato)}</div><div class="sub">destinato alla gestione mensile</div></div>
   </div>
   ${w.regimeAttivo==='forfettario'?`<div class="card">
@@ -530,11 +534,6 @@ function renderDashboard(el){
     <div class="prog big ${tettoPerc>=100?'over':tettoPerc>=85?'warn':''}"><span style="width:${tettoPerc}%"></span></div>
     <div style="font-size:12px;color:var(--muted);margin-top:6px">${residuoTetto>=0?('Residuo prima del limite: '+eur(residuoTetto)):('Superato di '+eur(-residuoTetto))} ${tettoPerc>=85&&residuoTetto>=0?'⚠️ ti stai avvicinando al tetto':''}</div>
   </div>`:''}
-  <div class="card"><div class="card-head"><h3>🎁 Bonus disponibili</h3><span style="font-size:14px;color:var(--violet);font-weight:700">Totale ${eur(bonusTot)}</span></div>
-    <table><tbody>
-    ${pots.map(p=>`<tr><td>${esc(p.nome)}<br><span style="font-size:11px;color:var(--muted)">${esc(p.info||'')}</span></td><td class="num"><b style="color:var(--violet)">${eur(p.saldo)}</b></td></tr>`).join('')}
-    </tbody></table>
-  </div>
   ${t.nFatture===0?`<div class="card"><div class="empty">Nessuna fattura registrata.<br><button class="btn-sm" style="margin-top:12px" onclick="goTo('fatture')">Aggiungi la prima fattura</button></div></div>`:''}`;
 }
 
@@ -995,6 +994,17 @@ function svgArea(points,o){o=o||{};const w=o.w||560,h=o.h||200,fmt=o.fmt||eur,co
   const ar=`M${X(0).toFixed(1)} ${(pad.t+ih).toFixed(1)} `+points.map((p,i)=>`L${X(i).toFixed(1)} ${Y(p.value).toFixed(1)}`).join(' ')+` L${X(points.length-1).toFixed(1)} ${(pad.t+ih).toFixed(1)} Z`;
   let dots='',lab='';points.forEach((p,i)=>{dots+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.value).toFixed(1)}" r="3" fill="${color}"><title>${esc(p.label)}: ${fmt(p.value)}</title></circle>`;if(i%2===0||i===points.length-1)lab+=`<text x="${X(i).toFixed(1)}" y="${pad.t+ih+14}" text-anchor="middle" font-size="9" fill="#8b97a6">${esc(p.label)}</text>`;});
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px;height:auto"><path d="${ar}" fill="${color}22"/><path d="${ln}" fill="none" stroke="${color}" stroke-width="2"/>${dots}${lab}</svg>`;
+}
+function eur0(v){return Math.round(v).toLocaleString('it-IT')+' €';}
+function svgDonut(frac,color,centerText,subText){
+  frac=Math.max(0,Math.min(1,frac||0));
+  const size=124,stroke=13,r=(size-stroke)/2-2,cx=size/2,cy=size/2,c=2*Math.PI*r,off=c*(1-frac);
+  return `<svg viewBox="0 0 ${size} ${size}" width="118" height="118" style="display:block;margin:0 auto">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line)" stroke-width="${stroke}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/>
+    <text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="17" font-weight="800" fill="var(--txt)">${centerText}</text>
+    ${subText?`<text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="10" fill="#8b97a6">${subText}</text>`:''}
+  </svg>`;
 }
 function renderStat(el){
   const w=W();const t=totali();const riservato=Object.values(ordinarioPerMese()).reduce((s,v)=>s+v,0);
