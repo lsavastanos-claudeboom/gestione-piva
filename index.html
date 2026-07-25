@@ -503,13 +503,15 @@ function monteStoricoFineMese(){
   const fat=fattureAnno();
   const prelMonte=prelieviAnno().filter(p=>p.pot==='fatture'||p.pot==='iniziale');
   const now=new Date();
-  const curM=(y>now.getFullYear())?1:(y<now.getFullYear()?12:now.getMonth()+1);
+  const curPref=(y===now.getFullYear())?(y+'-'+String(now.getMonth()+1).padStart(2,'0')):(y>now.getFullYear()?'0000-00':'9999-99');
   const out=[];
-  for(let m=curM;m<=12;m++){
-    const end=y+'-'+String(m).padStart(2,'0')+'-31';
+  for(let m=1;m<=12;m++){
+    const pref=y+'-'+String(m).padStart(2,'0');const end=pref+'-31';
+    const entrate=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'').slice(0,7)===pref)?(f.bonus||0):0),0);
+    const uscite=prelMonte.reduce((s,p)=>s+(((p.data||'').slice(0,7)===pref)?p.importo:0),0);
     const accr=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'')<=end)?(f.bonus||0):0),0);
     const prel=prelMonte.reduce((s,p)=>s+(((p.data||'')<=end)?p.importo:0),0);
-    out.push({mese:y+'-'+String(m).padStart(2,'0'),label:MESI[m-1],monte:riserva+accr-prel,futuro:(y===now.getFullYear()&&m>now.getMonth()+1)||(y>now.getFullYear())});
+    out.push({mese:pref,label:MESI[m-1],entrate,uscite,monte:riserva+accr-prel,corrente:(pref===curPref),passato:(pref<curPref),futuro:(pref>curPref)});
   }
   return out;
 }
@@ -563,6 +565,18 @@ function renderDashboard(el){
   const smSel=statoMeseSel();
   const tetto=w.tettoForfettario||85000;const usato=t.compensi;const residuoTetto=tetto-usato;const tettoPerc=tetto?Math.min(100,usato/tetto*100):0;
   const pj=w.proiezione||{};const bonusTarget=pj.target||85000;const bonusAnnuoPrev=proietta(bonusTarget).bonusAnnuo;const bonusUsato=fattureAnno().reduce((s,f)=>s+(f.bonus||0),0);const bonusUsatoPerc=bonusAnnuoPrev>0?Math.min(100,bonusUsato/bonusAnnuoPrev*100):0;const bonusResiduo=bonusAnnuoPrev-bonusUsato;
+  const flussiMonte=monteStoricoFineMese();
+  const anchorPrefD=(w.bonusIniData||'').slice(0,7)||(w.anno+'-01');
+  const spesaMonteMesi=flussiMonte.filter(f=>f.mese>=anchorPrefD&&!f.futuro);
+  const curSpesaMonte=(flussiMonte.find(f=>f.corrente)||{uscite:0}).uscite;
+  const prevSpesaMonteMesi=spesaMonteMesi.filter(f=>f.passato);
+  const prevNMonte=prevSpesaMonteMesi.length;
+  const mediaPrevMonte=prevNMonte?prevSpesaMonteMesi.reduce((s,f)=>s+f.uscite,0)/prevNMonte:0;
+  const meseScorsoMonte=prevNMonte?prevSpesaMonteMesi[prevNMonte-1]:null;
+  const deltaPercMonte=mediaPrevMonte>0?((curSpesaMonte-mediaPrevMonte)/mediaPrevMonte*100):null;
+  const deltaTxtMonte=(deltaPercMonte===null)?(curSpesaMonte>0?'—':'—'):((deltaPercMonte>=0?'+':'')+Math.round(deltaPercMonte)+'%');
+  const deltaClassMonte=(deltaPercMonte===null)?'':(deltaPercMonte>0?'red':(deltaPercMonte<0?'green':''));
+  const spesaMonteBars=spesaMonteMesi.map(f=>({label:f.label.slice(0,3),value:f.uscite,color:f.corrente?'#9085e9':'#5b6b8c'}));
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
   <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
@@ -580,6 +594,15 @@ function renderDashboard(el){
     </div>
     ${moDataD.length>=2?svgArea(moDataD,{color:'#9085e9',h:190}):moDataD.length?svgBars(moDataD,{color:'#9085e9',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}
     ${recentFuori.length?`<table class="rtable" style="margin-top:16px"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div style="font-size:12px;color:var(--muted);margin-top:12px">Nessuna spesa dai bonus registrata finora.</div>'}
+  </div>
+  <div class="card"><div class="card-head"><h3>💸 Spesa dal monte bonus — ${monthLabel(cm)}</h3></div>
+    <div class="desc">Quanto stai spendendo dal monte bonus ogni mese, con il confronto rispetto ai mesi precedenti dello stesso periodo.</div>
+    <div class="kpi-grid" style="margin:6px 0 16px">
+      <div class="kpi violet"><div class="lbl">Speso questo mese</div><div class="val" style="font-size:20px">${eur(curSpesaMonte)}</div></div>
+      <div class="kpi"><div class="lbl">Media mesi precedenti</div><div class="val" style="font-size:20px">${prevNMonte?eur(mediaPrevMonte):'—'}</div><div class="sub">${prevNMonte?(prevNMonte+' mes'+(prevNMonte>1?'i':'e')+' precedenti'):'nessun mese ancora'}</div></div>
+      <div class="kpi ${deltaClassMonte}"><div class="lbl">vs media</div><div class="val" style="font-size:20px">${prevNMonte&&deltaPercMonte!==null?deltaTxtMonte:'—'}</div><div class="sub">${meseScorsoMonte?('mese scorso '+eur(meseScorsoMonte.uscite)):'primo periodo di utilizzo'}</div></div>
+    </div>
+    ${spesaMonteBars.some(b=>b.value>0)?svgBars(spesaMonteBars,{color:'#9085e9',h:180}):'<div class="empty">Nessun utilizzo dal monte registrato finora. Quando registri una spesa dal monte bonus, qui vedrai l\'andamento mese per mese e il confronto.</div>'}
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin:30px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">📊 Panoramica ${w.anno}</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
   <div class="kpi-grid">
@@ -904,7 +927,7 @@ function renderBonus(el){
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
   const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
   const monthlyIds=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').map(x=>x.id);const firstMonthly=monthlyIds[0]||'';
-  const storico=monteStoricoFineMese();
+  const storico=monteStoricoFineMese();const storicoFwd=storico.filter(s=>!s.passato);
   const freeze=Math.min(Math.max(0,w.bonusFreeze||0),Math.max(0,potFat.saldo));
   el.innerHTML=`
   ${pageHead('Bonus','Il tuo monte bonus e la proiezione di quanto puoi spendere')}
@@ -940,11 +963,13 @@ function renderBonus(el){
     </tbody></table>
   </div>
   <div class="card"><div class="card-head"><h3>📈 Storico monte a fine mese</h3></div>
-    <div class="desc">Il totale bonus disponibile (il monte) a fine di ogni mese, da adesso in avanti. Sale con le fatture che emetti e scende con gli utilizzi che registri. I mesi ancora da venire mostrano il valore previsto in base ai dati inseriti finora.</div>
-    ${storico.length?svgBars(storico.map(s=>({label:s.label.slice(0,3),value:s.monte,color:s.futuro?'#5b6b8c':'#9085e9'}))):''}
-    <table class="rtable"><thead><tr><th>Fine mese</th><th class="num">Monte disponibile</th></tr></thead><tbody>
-    ${storico.map(s=>`<tr>
+    <div class="desc">Per ogni mese, da adesso in avanti: le entrate nel monte (bonus delle fatture), le uscite (utilizzi registrati) e il totale bonus disponibile a fine mese. I mesi ancora da venire mostrano il valore previsto in base ai dati inseriti finora.</div>
+    ${storicoFwd.length?svgBars(storicoFwd.map(s=>({label:s.label.slice(0,3),value:s.monte,color:s.futuro?'#5b6b8c':'#9085e9'}))):''}
+    <table class="rtable"><thead><tr><th>Fine mese</th><th class="num">Entrate</th><th class="num">Uscite</th><th class="num">Monte disponibile</th></tr></thead><tbody>
+    ${storicoFwd.map(s=>`<tr>
       <td data-label="Fine mese"><b>${monthLabel(s.mese)}</b>${s.futuro?' <span style="font-size:10px;color:var(--muted)">previsto</span>':''}</td>
+      <td class="num" data-label="Entrate" style="color:var(--green)">${s.entrate?('+'+eur(s.entrate)):eur(0)}</td>
+      <td class="num" data-label="Uscite" style="color:var(--red)">${s.uscite?('−'+eur(s.uscite)):eur(0)}</td>
       <td class="num" data-label="Monte disponibile"><b style="color:${s.monte<0?'var(--red)':'var(--violet)'}">${eur(s.monte)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
