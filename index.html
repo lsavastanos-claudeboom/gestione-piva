@@ -161,10 +161,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
 @media(max-width:640px){
   html,body{overflow-x:hidden;max-width:100%}
   .shell{flex-direction:column}
-  .sidebar{position:fixed;bottom:0;left:0;right:0;top:auto;width:100%;height:56px;flex-direction:row;padding:0;border-right:none;border-top:1px solid var(--line);z-index:40;overflow:hidden;padding-bottom:env(safe-area-inset-bottom)}
+  .sidebar{position:fixed;bottom:0;left:0;right:0;top:auto;width:100%;height:auto;flex-direction:row;padding:0 0 env(safe-area-inset-bottom);border-right:none;border-top:1px solid var(--line);z-index:40;overflow:hidden;background:var(--panel)}
   .brand,.side-foot{display:none}
-  .nav{flex-direction:row;gap:0;margin:0;flex:1;width:100%;justify-content:space-between}
-  .nav button{flex:1 1 0;min-width:0;flex-direction:column;gap:2px;padding:6px 1px;border-radius:0;color:var(--muted);overflow:hidden}
+  .nav{flex-direction:row;gap:0;margin:0;flex:1;width:100%;justify-content:space-between;align-items:center;padding:6px 0}
+  .nav button{flex:1 1 0;min-width:0;flex-direction:column;gap:3px;padding:4px 1px;border-radius:0;color:var(--muted);overflow:hidden}
   .nav button.active{background:none;color:var(--accent)}
   .nav button .ic{font-size:18px}
   .nav button span:not(.ic){font-size:8px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}
@@ -728,26 +728,26 @@ function renderBonus(el){
   const prel=(w.prelieviBonus||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
   const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
-  const accrualFuturo=mensile*rim;const spendEntroDic=tot+accrualFuturo;const mediaMese=rim>0?spendEntroDic/rim:spendEntroDic;
+  const monteFatture=pots[0].saldo;const mediaMese=rim>0?monteFatture/rim:monteFatture;
   const now=new Date();const curM=(w.anno>now.getFullYear())?1:(w.anno<now.getFullYear()?13:now.getMonth()+1);
   const remMesi=[];for(let m=curM;m<=12;m++)remMesi.push(m);
   el.innerHTML=`
   ${pageHead('Bonus','Il tuo monte bonus e la proiezione di quanto puoi spendere')}
   <div class="conto-hero">
     <div class="conto-main">
-      <div class="lbl">Bonus disponibile</div>
-      <div class="big" style="color:${tot<0?'var(--red)':'var(--violet)'}">${eur(tot)}</div>
-      <div style="font-size:12px;color:var(--muted)">Bonus già accantonato + bonus delle fatture + bonus mensili, al netto dei prelievi</div>
+      <div class="lbl">Monte bonus (dalle fatture)</div>
+      <div class="big" style="color:${pots[0].saldo<0?'var(--red)':'var(--violet)'}">${eur(pots[0].saldo)}</div>
+      <div style="font-size:12px;color:var(--muted)">Bonus già accantonato + bonus di ogni fattura, al netto dei prelievi. I bonus mensili restano separati (qui a lato).</div>
       <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Bonus già accantonato (iniziale)</label><input type="number" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
     </div>
     <div class="conto-side">
-      <div class="kpi violet"><div class="lbl">🎁 Bonus da fatture</div><div class="val" style="font-size:22px">${eur(pots[0].saldo)}</div><div class="sub">accantonato ${eur(pots[0].iniziale)} + ${eur(pots[0].accrediti)} da fatture</div></div>
+      ${pots.slice(1).map(p=>`<div class="kpi"><div class="lbl">📅 ${esc(p.nome)}</div><div class="val" style="font-size:20px;color:${p.saldo<0?'var(--red)':'var(--txt)'}">${eur(p.saldo)}</div><div class="sub">salvadanaio separato</div></div>`).join('')}
     </div>
   </div>
-  <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi</h3>
-    <div class="desc">Disponibile ora ${eur(tot)} + accantonamenti mensili previsti (${eur(mensile)} × ${rim} mesi) = ${eur(spendEntroDic)} entro dicembre. Le fatture future aumenteranno il monte bonus.</div>
+  <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi (monte fatture)</h3>
+    <div class="desc">Monte bonus da fatture ${eur(pots[0].saldo)} ÷ ${rim} mesi rimanenti = ~${eur(mediaMese)}/mese. Le fatture future aumenteranno il monte. I bonus mensili sono gestiti a parte.</div>
     <div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi violet"><div class="lbl">Spendibile ora</div><div class="val" style="font-size:22px">${eur(tot)}</div></div>
+      <div class="kpi violet"><div class="lbl">Monte bonus ora</div><div class="val" style="font-size:22px">${eur(pots[0].saldo)}</div></div>
       <div class="kpi"><div class="lbl">Mesi rimanenti</div><div class="val" style="font-size:22px">${rim}</div></div>
       <div class="kpi green"><div class="lbl">Puoi spendere ~/mese</div><div class="val" style="font-size:22px">${eur(mediaMese)}</div></div>
     </div>
