@@ -459,7 +459,10 @@ function bonusPots(){
   const prelPot=id=>prel.filter(p=>p.pot===id).reduce((s,p)=>s+p.importo,0);
   const anchorF=w.bonusFattureInizio||'9999-12-31';
   const bonusFatture=fattureAnno().filter(f=>(f.data||'')>=anchorF).reduce((s,f)=>s+(f.bonus||0),0);
-  const pots=[{id:'fatture',nome:'Bonus da fatture',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture,prelievi:prelPot('fatture'),info:'progressivo iniziale + bonus delle fatture dal '+(w.bonusFattureInizio?fmtDate(w.bonusFattureInizio):'—')}];
+  const pots=[
+    {id:'iniziale',nome:'Monte bonus iniziale',iniziale:w.bonusProgressivo||0,accrediti:0,prelievi:prelPot('iniziale'),info:'riserva già accantonata (fissa)'},
+    {id:'fatture',nome:'Monte bonus da fatture',iniziale:0,accrediti:bonusFatture,prelievi:prelPot('fatture'),info:'bonus delle fatture dal '+(w.bonusFattureInizio?fmtDate(w.bonusFattureInizio):'—')}
+  ];
   (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{const spMese=prel.filter(p=>p.pot===x.id&&p.mese===cm).reduce((s,p)=>s+p.importo,0);pots.push({id:x.id,nome:x.nome,iniziale:0,accrediti:(x.importo||0),prelievi:spMese,mensile:x.importo,mese:cm,info:eur(x.importo)+'/mese · '+monthLabel(cm)});});
   pots.forEach(p=>p.saldo=p.iniziale+p.accrediti-p.prelievi);
   return pots;
@@ -748,30 +751,34 @@ function openQuickAdd(){
 /* ============ BONUS (salvadanai) ============ */
 function renderBonus(el){
   const w=W();const pots=bonusPots();const tot=pots.reduce((s,p)=>s+p.saldo,0);
+  const potIni=pots.find(p=>p.id==='iniziale')||{saldo:0};
+  const potFat=pots.find(p=>p.id==='fatture')||{saldo:0};
+  const potsMon=pots.filter(p=>p.id!=='iniziale'&&p.id!=='fatture');
   const prel=(w.prelieviBonus||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
   const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
   const monthlyIds=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').map(x=>x.id);const firstMonthly=monthlyIds[0]||'';
-  const monteFatture=pots[0].saldo;const mediaMese=rim>0?monteFatture/rim:monteFatture;
+  const monteFatture=potFat.saldo;const mediaMese=rim>0?monteFatture/rim:monteFatture;
   const now=new Date();const curM=(w.anno>now.getFullYear())?1:(w.anno<now.getFullYear()?13:now.getMonth()+1);
   const remMesi=[];for(let m=curM;m<=12;m++)remMesi.push(m);
   el.innerHTML=`
   ${pageHead('Bonus','Il tuo monte bonus e la proiezione di quanto puoi spendere')}
   <div class="conto-hero">
     <div class="conto-main">
-      <div class="lbl">Monte bonus (dalle fatture)</div>
-      <div class="big" style="color:${pots[0].saldo<0?'var(--red)':'var(--violet)'}">${eur(pots[0].saldo)}</div>
-      <div style="font-size:12px;color:var(--muted)">Bonus già accantonato + bonus di ogni fattura, al netto dei prelievi. I bonus mensili restano separati (qui a lato).</div>
-      <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Bonus già accantonato (iniziale)</label><input type="number" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
+      <div class="lbl">Monte bonus da fatture</div>
+      <div class="big" style="color:${potFat.saldo<0?'var(--red)':'var(--violet)'}">${eur(potFat.saldo)}</div>
+      <div style="font-size:12px;color:var(--muted)">Cresce con ogni fattura emessa: è soprattutto da qui che dipende quanto potrai spendere nei prossimi mesi. La riserva iniziale è un monte separato (a lato), i bonus mensili sono a parte.</div>
+      <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Monte bonus iniziale (riserva già accantonata)</label><input type="number" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
     </div>
     <div class="conto-side">
-      ${pots.slice(1).map(p=>`<div class="kpi"><div class="lbl">📅 ${esc(p.nome)}</div><div class="val" style="font-size:20px;color:${p.saldo<0?'var(--red)':'var(--txt)'}">${eur(p.saldo)}</div><div class="sub">salvadanaio separato</div></div>`).join('')}
+      <div class="kpi violet"><div class="lbl">💰 Monte bonus iniziale</div><div class="val" style="font-size:20px;color:${potIni.saldo<0?'var(--red)':'var(--txt)'}">${eur(potIni.saldo)}</div><div class="sub">riserva fissa, in aggiunta</div></div>
+      ${potsMon.map(p=>`<div class="kpi"><div class="lbl">📅 ${esc(p.nome)}</div><div class="val" style="font-size:20px;color:${p.saldo<0?'var(--red)':'var(--txt)'}">${eur(p.saldo)}</div><div class="sub">mese in corso</div></div>`).join('')}
     </div>
   </div>
   <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi (monte fatture)</h3>
-    <div class="desc">Monte bonus da fatture ${eur(pots[0].saldo)} ÷ ${rim} mesi rimanenti = ~${eur(mediaMese)}/mese. Le fatture future aumenteranno il monte. I bonus mensili sono gestiti a parte.</div>
+    <div class="desc">Calcolo sul monte fatture ${eur(potFat.saldo)} ÷ ${rim} mesi rimanenti = ~${eur(mediaMese)}/mese. Le fatture future aumenteranno il monte. In più hai la riserva iniziale di ${eur(potIni.saldo)}, separata. I bonus mensili sono gestiti a parte.</div>
     <div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi violet"><div class="lbl">Monte bonus ora</div><div class="val" style="font-size:22px">${eur(pots[0].saldo)}</div></div>
+      <div class="kpi violet"><div class="lbl">Monte fatture ora</div><div class="val" style="font-size:22px">${eur(potFat.saldo)}</div></div>
       <div class="kpi"><div class="lbl">Mesi rimanenti</div><div class="val" style="font-size:22px">${rim}</div></div>
       <div class="kpi green"><div class="lbl">Puoi spendere ~/mese</div><div class="val" style="font-size:22px">${eur(mediaMese)}</div></div>
     </div>
