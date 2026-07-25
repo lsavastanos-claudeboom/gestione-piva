@@ -491,9 +491,34 @@ function renderDashboard(el){
   const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+x.importo,0)||budgetWk*4;
   const speseMeseCorr=spesePerMese(cm);
   const progRow=(label,speso,bdg)=>{const pc=bdg?Math.min(100,speso/bdg*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${label}</span><span style="color:${speso>bdg?'var(--red)':'var(--muted)'}">${eur(speso)} / ${eur(bdg)}</span></div><div class="prog ${pc>=100?'over':pc>=80?'warn':''}"><span style="width:${pc}%"></span></div></div>`;};
+  const recentSpese=[
+    ...w.spese.map(s=>({data:s.data,label:(s.categoria||'Spesa')+(s.descrizione?(' · '+s.descrizione):''),importo:s.importo,tipo:'sett',id:s.id})),
+    ...(w.prelieviBonus||[]).map(p=>({data:p.data,label:'Bonus'+(p.note?(' · '+p.note):''),importo:p.importo,tipo:'bonus',id:p.id}))
+  ].sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,6);
   const tetto=w.tettoForfettario||85000;const usato=t.compensi;const residuoTetto=tetto-usato;const tettoPerc=tetto?Math.min(100,usato/tetto*100):0;
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
+  <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
+  <div class="card"><div class="card-head"><h3>➕ Aggiungi spesa</h3><button class="btn-sm" onclick="openQuickAdd()">+ Registra spesa</button></div>
+    <div class="desc">Spesa settimanale o dal bonus · qui sotto le ultime registrate</div>
+    ${recentSpese.length?`<table class="rtable"><tbody>${recentSpese.map(r=>`<tr><td data-label="Data" style="width:92px">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.label)} ${r.tipo==='bonus'?'<span class="tag ina">bonus</span>':'<span class="tag imp">settim.</span>'}</td><td class="num" data-label="Importo" style="color:${r.tipo==='bonus'?'var(--violet)':'var(--txt)'}">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="${r.tipo==='bonus'?`delPrelievoBonus('${r.id}')`:`delSpesa('${r.id}')`}">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nessuna spesa registrata. Usa “+ Registra spesa”.</div>'}
+  </div>
+  <div class="card"><h3>🧩 Quote flessibili dei ${eur(fab)} — ${monthLabel(cm)}</h3>
+    <div class="desc">Bonus tipo 1 e tipo 2: quote dei ${eur(fab)}/mese. Speso vs assegnato questo mese.</div>
+    ${monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return progRow('🎁 '+esc(mb.nome),sp,mb.importo);}).join('')}
+  </div>
+  <div class="card"><div class="card-head"><h3>🛒 Spese settimanali</h3><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>
+    <div class="desc">Ultime settimane · confronto con il budget settimanale</div>
+    ${weeklyRegistroHTML(5)}
+  </div>
+  <div class="card"><h3>📅 Spese oltre i ${eur(fab)} per mese</h3><div class="desc">Spese dai bonus (monte fatture/iniziale) sostenute ogni mese, al di fuori dei ${eur(fab)} fissi</div>
+    <div class="kpi-grid" style="margin:6px 0 16px">
+      <div class="kpi violet"><div class="lbl">Totale ${w.anno}</div><div class="val" style="font-size:20px">${eur(totFuoriD)}</div></div>
+      <div class="kpi"><div class="lbl">Media / mese</div><div class="val" style="font-size:20px">${eur(mediaFuoriD)}</div></div>
+      <div class="kpi"><div class="lbl">Questo mese</div><div class="val" style="font-size:20px">${eur(fuoriCorrD)}</div></div>
+    </div>
+    ${moDataD.length>=2?svgArea(moDataD,{color:'#9085e9',h:190}):moDataD.length?svgBars(moDataD,{color:'#9085e9',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}</div>
+  <div style="display:flex;align-items:center;gap:12px;margin:30px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">📊 Panoramica ${w.anno}</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
   <div class="kpi-grid">
     <div class="kpi accent"><div class="lbl">🧾 Fatturato ${w.anno}</div><div class="val">${eur(t.compensi)}</div><div class="sub">${t.nFatture} fatture · con rivalsa ${eur(t.fatturato)}</div></div>
     <div class="kpi ${saldo<0?'red':''}"><div class="lbl">🏦 Saldo conto imposte</div><div class="val">${eur(saldo)}</div><div class="sub">liquidità per imposte e Inarcassa</div></div>
@@ -510,22 +535,6 @@ function renderDashboard(el){
     ${pots.map(p=>`<tr><td>${esc(p.nome)}<br><span style="font-size:11px;color:var(--muted)">${esc(p.info||'')}</span></td><td class="num"><b style="color:var(--violet)">${eur(p.saldo)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
-  <div style="display:flex;align-items:center;gap:12px;margin:30px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
-  <div class="card"><h3>🧩 Quote flessibili dei ${eur(fab)} — ${monthLabel(cm)}</h3>
-    <div class="desc">Bonus tipo 1 e tipo 2: quote dei ${eur(fab)}/mese. Speso vs assegnato questo mese.</div>
-    ${monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return progRow('🎁 '+esc(mb.nome),sp,mb.importo);}).join('')}
-  </div>
-  <div class="card"><div class="card-head"><h3>🛒 Spese settimanali</h3><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>
-    <div class="desc">Ultime settimane · confronto con il budget settimanale</div>
-    ${weeklyRegistroHTML(5)}
-  </div>
-  <div class="card"><h3>📅 Spese oltre i ${eur(fab)} per mese</h3><div class="desc">Spese dai bonus (monte fatture/iniziale) sostenute ogni mese, al di fuori dei ${eur(fab)} fissi</div>
-    <div class="kpi-grid" style="margin:6px 0 16px">
-      <div class="kpi violet"><div class="lbl">Totale ${w.anno}</div><div class="val" style="font-size:20px">${eur(totFuoriD)}</div></div>
-      <div class="kpi"><div class="lbl">Media / mese</div><div class="val" style="font-size:20px">${eur(mediaFuoriD)}</div></div>
-      <div class="kpi"><div class="lbl">Questo mese</div><div class="val" style="font-size:20px">${eur(fuoriCorrD)}</div></div>
-    </div>
-    ${moDataD.length>=2?svgArea(moDataD,{color:'#9085e9',h:190}):moDataD.length?svgBars(moDataD,{color:'#9085e9',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}</div>
   ${t.nFatture===0?`<div class="card"><div class="empty">Nessuna fattura registrata.<br><button class="btn-sm" style="margin-top:12px" onclick="goTo('fatture')">Aggiungi la prima fattura</button></div></div>`:''}`;
 }
 
