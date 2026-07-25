@@ -159,37 +159,50 @@ tr:hover td{background:rgba(255,255,255,.02)}
 @media(min-width:900px){#fab{display:none}}
 @media(max-width:900px) and (min-width:641px){.sidebar{width:60px;padding:14px 6px}.brand b,.brand span,.nav button span:not(.ic),.side-foot .txt{display:none}.main{padding:18px}}
 @media(max-width:640px){
+  html,body{overflow-x:hidden;max-width:100%}
   .shell{flex-direction:column}
-  .sidebar{position:fixed;bottom:0;left:0;right:0;top:auto;width:100%;height:60px;flex-direction:row;padding:0 4px;border-right:none;border-top:1px solid var(--line);z-index:40;overflow-x:auto;padding-bottom:env(safe-area-inset-bottom)}
+  .sidebar{position:fixed;bottom:0;left:0;right:0;top:auto;width:100%;height:56px;flex-direction:row;padding:0;border-right:none;border-top:1px solid var(--line);z-index:40;overflow:hidden;padding-bottom:env(safe-area-inset-bottom)}
   .brand,.side-foot{display:none}
-  .nav{flex-direction:row;gap:0;margin:0;flex:1;justify-content:space-around}
-  .nav button{flex-direction:column;gap:3px;padding:7px 8px;border-radius:0;min-width:58px;white-space:nowrap;color:var(--muted)}
+  .nav{flex-direction:row;gap:0;margin:0;flex:1;width:100%;justify-content:space-between}
+  .nav button{flex:1 1 0;min-width:0;flex-direction:column;gap:2px;padding:6px 1px;border-radius:0;color:var(--muted);overflow:hidden}
   .nav button.active{background:none;color:var(--accent)}
-  .nav button .ic{font-size:19px}
-  .nav button span:not(.ic){font-size:9px}
-  .main{padding:16px 14px calc(80px + env(safe-area-inset-bottom));max-width:100%}
-  .page-head h2{font-size:19px}
+  .nav button .ic{font-size:18px}
+  .nav button span:not(.ic){font-size:8px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}
+  .main{padding:16px 13px calc(76px + env(safe-area-inset-bottom));max-width:100%;width:100%}
   .page-head{margin-bottom:16px}
+  .page-head h2{font-size:19px}
+  .regime-pill{font-size:10px}
   .kpi-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .kpi{padding:14px}
   .kpi .val{font-size:20px}
   .card{padding:15px;overflow-x:auto}
   .form-grid{grid-template-columns:1fr}
   .conto-hero{flex-direction:column}
+  .conto-main{min-width:0;padding:18px}
   .conto-main .big{font-size:30px}
+  .conto-side{min-width:0}
+  .saldo-set{flex-wrap:wrap}
+  .saldo-set input{flex:1;min-width:0;width:auto}
+  .alloc-row{flex-wrap:wrap}
+  .alloc-row select{flex:1 1 100%;min-width:0}
+  .alloc-row input{flex:1 1 auto;min-width:0;width:auto}
   .overlay{padding:10px}
-  .modal{border-radius:14px}
+  .modal{border-radius:14px;width:100%}
+  .modal-head,.modal-foot{padding:16px 18px}
+  .modal-body{padding:18px}
   th,td{padding:8px 6px;font-size:13px}
-  input,select{font-size:16px}
-  #fab{bottom:calc(74px + env(safe-area-inset-bottom))}
+  input,select,textarea{font-size:16px}
+  #fab{bottom:calc(72px + env(safe-area-inset-bottom));right:16px}
   table.rtable thead{display:none}
   table.rtable tr{display:block;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:4px 12px;background:var(--panel2)}
   table.rtable tr:hover td{background:none}
-  table.rtable td{display:flex;justify-content:space-between;align-items:center;gap:14px;border:none;border-bottom:1px solid rgba(255,255,255,.05);padding:9px 0;text-align:right;font-size:14px}
+  table.rtable td{display:flex;justify-content:space-between;align-items:center;gap:14px;border:none;border-bottom:1px solid rgba(255,255,255,.05);padding:9px 0;text-align:right;font-size:14px;min-width:0}
   table.rtable td:last-child{border-bottom:none}
   table.rtable td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:500;text-align:left;white-space:nowrap}
   table.rtable td:empty{display:none}
-  .nav button{min-width:52px}
-  .nav button span:not(.ic){font-size:8px}
+  .casc .r{font-size:13px;padding:8px 10px}
+  .casc .r.big{font-size:14px}
+  .scad .item{min-width:calc(50% - 5px)}
 }
 </style>
 </head>
@@ -223,8 +236,8 @@ tr:hover td{background:rgba(255,255,255,.02)}
       <button data-v="dashboard" class="active"><span class="ic">◧</span><span>Dashboard</span></button>
       <button data-v="fatture"><span class="ic">🧾</span><span>Fatture</span></button>
       <button data-v="conto"><span class="ic">🏦</span><span>Conto imposte</span></button>
-      <button data-v="ordinario"><span class="ic">📆</span><span>Ordinario mensile</span></button>
-      <button data-v="spese"><span class="ic">🛒</span><span>Spese settimanali</span></button>
+      <button data-v="ordinario"><span class="ic">📆</span><span>Ordinario</span></button>
+      <button data-v="spese"><span class="ic">🛒</span><span>Spese</span></button>
       <button data-v="bonus"><span class="ic">🎁</span><span>Bonus</span></button>
       <button data-v="proiezione"><span class="ic">📈</span><span>Proiezione</span></button>
       <button data-v="stat"><span class="ic">📊</span><span>Statistiche</span></button>
@@ -714,28 +727,25 @@ function renderBonus(el){
   const w=W();const pots=bonusPots();const tot=pots.reduce((s,p)=>s+p.saldo,0);
   const prel=(w.prelieviBonus||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
-  const riserva=w.bonusRiserva||0;
   const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
   const accrualFuturo=mensile*rim;const spendEntroDic=tot+accrualFuturo;const mediaMese=rim>0?spendEntroDic/rim:spendEntroDic;
   const now=new Date();const curM=(w.anno>now.getFullYear())?1:(w.anno<now.getFullYear()?13:now.getMonth()+1);
   const remMesi=[];for(let m=curM;m<=12;m++)remMesi.push(m);
   el.innerHTML=`
-  ${pageHead('Bonus','Salvadanai dei bonus e proiezione di quanto puoi spendere')}
+  ${pageHead('Bonus','Il tuo monte bonus e la proiezione di quanto puoi spendere')}
   <div class="conto-hero">
     <div class="conto-main">
-      <div class="lbl">Bonus spendibile</div>
-      <div class="big" style="color:var(--violet)">${eur(tot)}</div>
-      <div style="font-size:12px;color:var(--muted)">Parte dinamica (fatture) + bonus mensili, al netto dei prelievi · riserva fissa esclusa</div>
-      <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Riserva fissa (intoccabile)</label><input type="number" step="0.01" id="bonusRis" value="${riserva}"><button class="mini-btn" onclick="setBonusRiserva()">Salva</button></div>
-      <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Progressivo dinamico iniziale</label><input type="number" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
+      <div class="lbl">Bonus disponibile</div>
+      <div class="big" style="color:${tot<0?'var(--red)':'var(--violet)'}">${eur(tot)}</div>
+      <div style="font-size:12px;color:var(--muted)">Bonus già accantonato + bonus delle fatture + bonus mensili, al netto dei prelievi</div>
+      <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Bonus già accantonato (iniziale)</label><input type="number" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
     </div>
     <div class="conto-side">
-      <div class="kpi"><div class="lbl">🔒 Riserva fissa</div><div class="val" style="font-size:22px">${eur(riserva)}</div><div class="sub">non spendibile</div></div>
-      <div class="kpi violet"><div class="lbl">🎁 Bonus totale</div><div class="val" style="font-size:22px">${eur(tot+riserva)}</div><div class="sub">spendibile + riserva</div></div>
+      <div class="kpi violet"><div class="lbl">🎁 Bonus da fatture</div><div class="val" style="font-size:22px">${eur(pots[0].saldo)}</div><div class="sub">accantonato ${eur(pots[0].iniziale)} + ${eur(pots[0].accrediti)} da fatture</div></div>
     </div>
   </div>
   <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi</h3>
-    <div class="desc">Spendibile ora ${eur(tot)} + accantonamenti mensili previsti (${eur(mensile)} × ${rim} mesi) = ${eur(spendEntroDic)} entro dicembre. La riserva fissa (${eur(riserva)}) è esclusa. Le fatture future aumenteranno la parte dinamica.</div>
+    <div class="desc">Disponibile ora ${eur(tot)} + accantonamenti mensili previsti (${eur(mensile)} × ${rim} mesi) = ${eur(spendEntroDic)} entro dicembre. Le fatture future aumenteranno il monte bonus.</div>
     <div class="kpi-grid" style="margin-bottom:16px">
       <div class="kpi violet"><div class="lbl">Spendibile ora</div><div class="val" style="font-size:22px">${eur(tot)}</div></div>
       <div class="kpi"><div class="lbl">Mesi rimanenti</div><div class="val" style="font-size:22px">${rim}</div></div>
@@ -748,7 +758,7 @@ function renderBonus(el){
     ${pots.map(p=>`<tr><td data-label="Salvadanaio" style="text-align:left"><b>${esc(p.nome)}</b><br><span style="font-size:11px;color:var(--muted)">${esc(p.info||'')}</span></td>
       <td class="num" data-label="Iniziale">${eur(p.iniziale)}</td><td class="num" data-label="Accreditato" style="color:var(--green)">${eur(p.accrediti)}</td>
       <td class="num" data-label="Prelevato" style="color:var(--red)">${p.prelievi?('−'+eur(p.prelievi)):eur(0)}</td>
-      <td class="num" data-label="Saldo"><b style="color:var(--violet)">${eur(p.saldo)}</b></td></tr>`).join('')}
+      <td class="num" data-label="Saldo"><b style="color:${p.saldo<0?'var(--red)':'var(--violet)'}">${eur(p.saldo)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
   <div class="card"><div class="card-head"><h3>💸 Prelievi / utilizzi bonus</h3><button class="btn-sm" onclick="openPrelievoBonus()">+ Registra prelievo</button></div>
