@@ -308,7 +308,7 @@ function newWorkspace(){return{
     {id:'m7',nome:'Bonus mensile 300',importo:300,tipo:'bonus'},
     {id:'m8',nome:'Bonus mensile 250',importo:250,tipo:'bonus'}
   ],
-  bonusProgressivo:0, bonusRiserva:0, prelieviBonus:[], bonusMensiliInizio:null, bonusFattureInizio:null,
+  bonusProgressivo:0, bonusRiserva:0, bonusFreeze:0, prelieviBonus:[], bonusMensiliInizio:null, bonusFattureInizio:null,
   proiezione:{quotaOrdinaria:30000, accantonaAnnoSucc:20000, speseGrandi:[{nome:'Auto',importo:9300}], scenari:[100000,85000,80000,75000], target:85000},
   fatture:[], spese:[], movimenti:[]
 };}
@@ -876,9 +876,7 @@ function renderBonus(el){
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
   const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
   const monthlyIds=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').map(x=>x.id);const firstMonthly=monthlyIds[0]||'';
-  const monteFatture=potFat.saldo;const mediaMese=rim>0?monteFatture/rim:monteFatture;
-  const now=new Date();const curM=(w.anno>now.getFullYear())?1:(w.anno<now.getFullYear()?13:now.getMonth()+1);
-  const remMesi=[];for(let m=curM;m<=12;m++)remMesi.push(m);
+  const freeze=Math.min(Math.max(0,w.bonusFreeze||0),Math.max(0,potFat.saldo));
   el.innerHTML=`
   ${pageHead('Bonus','Il tuo monte bonus e la proiezione di quanto puoi spendere')}
   <div class="conto-hero">
@@ -893,13 +891,15 @@ function renderBonus(el){
     </div>
   </div>
   <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi</h3>
-    <div class="desc">Calcolo sul monte bonus ${eur(potFat.saldo)} ÷ ${rim} mesi rimanenti = ~${eur(mediaMese)}/mese. Le fatture future aumenteranno il monte. I bonus mensili sono gestiti a parte.</div>
-    <div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi violet"><div class="lbl">Monte bonus ora</div><div class="val" style="font-size:22px">${eur(potFat.saldo)}</div></div>
-      <div class="kpi"><div class="lbl">Mesi rimanenti</div><div class="val" style="font-size:22px">${rim}</div></div>
-      <div class="kpi green"><div class="lbl">Puoi spendere ~/mese</div><div class="val" style="font-size:22px">${eur(mediaMese)}</div></div>
+    <div class="desc">Congela una parte del monte da tenere ferma (che non spendi): la proiezione mensile userà solo il resto. Le fatture future aumenteranno il monte; i bonus mensili sono a parte.</div>
+    <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px;margin-bottom:10px">
+        <span>❄️ Importo da tenere fermo: <b id="freezeVal" style="color:var(--txt)">${eur(freeze)}</b></span>
+        <span style="color:var(--muted)">Monte totale ${eur(potFat.saldo)}</span>
+      </div>
+      <input type="range" id="bonusFreezeSlider" min="0" max="${Math.max(0,Math.round(potFat.saldo))}" step="10" value="${Math.round(freeze)}" oninput="setBonusFreeze(this.value)" style="width:100%;accent-color:#3987e5">
     </div>
-    ${rim>0?svgBars(remMesi.map(m=>({label:MESI[m-1].slice(0,3),value:mediaMese,color:'#9085e9'}))):'<div class="empty">Anno concluso.</div>'}
+    <div id="spendBody">${spendBonusInner()}</div>
   </div>
   <div class="card"><h3>🐷 Salvadanai</h3><div class="desc">I bonus mensili mostrano il valore del mese in corso (${monthLabel(curBonusMese())}), non il progressivo. Il monte bonus invece è cumulativo. Modifica gli importi mensili nella composizione in “Ordinario mensile”; i singoli mesi sono nel calendario qui sotto.</div>
     <table class="rtable"><thead><tr><th>Salvadanaio</th><th class="num">Iniziale</th><th class="num">Accreditato</th><th class="num">Prelevato</th><th class="num">Saldo</th></tr></thead><tbody>
@@ -927,6 +927,21 @@ function renderBonus(el){
   </div>`;
 }
 function setBonusProgressivo(){W().bonusProgressivo=+document.getElementById('bonusIni').value||0;save();render();toast('Progressivo aggiornato');}
+function spendBonusInner(){
+  const w=W();const potFat=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;
+  const rim=mesiRimanenti();
+  const freeze=Math.min(Math.max(0,w.bonusFreeze||0),Math.max(0,potFat));
+  const spend=potFat-freeze;const media=rim>0?spend/rim:spend;
+  const now=new Date();const curM=(w.anno>now.getFullYear())?1:(w.anno<now.getFullYear()?13:now.getMonth()+1);
+  const remMesi=[];for(let m=curM;m<=12;m++)remMesi.push(m);
+  return `<div class="kpi-grid" style="margin-bottom:16px">
+    <div class="kpi violet"><div class="lbl">Disponibile per la spesa</div><div class="val" style="font-size:22px">${eur(spend)}</div><div class="sub">monte ${eur(potFat)} − fermo ${eur(freeze)}</div></div>
+    <div class="kpi"><div class="lbl">Mesi rimanenti</div><div class="val" style="font-size:22px">${rim}</div></div>
+    <div class="kpi green"><div class="lbl">Puoi spendere ~/mese</div><div class="val" style="font-size:22px">${eur(media)}</div></div>
+  </div>
+  ${rim>0?svgBars(remMesi.map(m=>({label:MESI[m-1].slice(0,3),value:media,color:'#9085e9'}))):'<div class="empty">Anno concluso.</div>'}`;
+}
+function setBonusFreeze(v){const w=W();const potFat=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;w.bonusFreeze=Math.min(Math.max(0,+v||0),Math.max(0,potFat));save();const fv=document.getElementById('freezeVal');if(fv)fv.textContent=eur(w.bonusFreeze);const sb=document.getElementById('spendBody');if(sb)sb.innerHTML=spendBonusInner();}
 function setBonusRiserva(){W().bonusRiserva=+document.getElementById('bonusRis').value||0;save();render();toast('Riserva aggiornata');}
 function openPrelievoBonus(prePot,preMese){
   const w=W();const mesiOpts=mesiBonusList();const dm=preMese||curMonthKey();
