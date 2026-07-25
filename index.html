@@ -492,7 +492,7 @@ function bonusPots(){
   const iniDa=w.bonusIniData||'';
   const bonusFatture=fattureAnno().reduce((s,f)=>s+((!iniDa||(f.data||'')>iniDa)?(f.bonus||0):0),0);
   const pots=[
-    {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture,prelievi:prelPot('fatture')+prelPot('iniziale'),info:iniDa?('riserva (fatture fino al '+fmtDate(iniDa)+') + bonus fatture successive'):'riserva iniziale + bonus delle fatture'}
+    {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture,prelievi:prelPot('fatture')+prelPot('iniziale'),info:'riserva iniziale + bonus delle fatture'}
   ];
   (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{const spMese=prel.filter(p=>p.pot===x.id&&p.mese===cm).reduce((s,p)=>s+p.importo,0);pots.push({id:x.id,nome:x.nome,iniziale:0,accrediti:(x.importo||0),prelievi:spMese,mensile:x.importo,mese:cm,info:eur(x.importo)+'/mese · '+monthLabel(cm)});});
   pots.forEach(p=>p.saldo=p.iniziale+p.accrediti-p.prelievi);
@@ -896,9 +896,8 @@ function renderBonus(el){
     <div class="conto-main">
       <div class="lbl">Monte bonus disponibile</div>
       <div class="big" style="color:${potFat.saldo<0?'var(--red)':'var(--violet)'}">${eur(potFat.saldo)}</div>
-      <div style="font-size:12px;color:var(--muted)">Riserva già accantonata + bonus delle fatture emesse <b>dopo</b> la data della riserva, al netto degli utilizzi. È da qui che dipende quanto potrai spendere nei prossimi mesi. I bonus mensili sono gestiti a parte.</div>
+      <div style="font-size:12px;color:var(--muted)">Riserva già accantonata + bonus delle fatture emesse da quando usi l'app, al netto degli utilizzi. È da qui che dipende quanto potrai spendere nei prossimi mesi. I bonus mensili sono gestiti a parte.</div>
       <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Bonus già accantonato (riserva iniziale, parte del monte)</label><input type="number" inputmode="decimal" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
-      <div class="saldo-set" style="margin-top:8px"><label style="font-size:12px;color:var(--muted)">La riserva copre già le fatture fino al <span style="color:var(--muted)">(le successive fanno crescere il monte)</span></label><input type="date" id="bonusIniData" value="${w.bonusIniData||''}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
     </div>
     <div class="conto-side">
       ${potsMon.map(p=>`<div class="kpi"><div class="lbl">📅 ${esc(p.nome)}</div><div class="val" style="font-size:20px;color:${p.saldo<0?'var(--red)':'var(--txt)'}">${eur(p.saldo)}</div><div class="sub">mese in corso</div></div>`).join('')}
@@ -941,7 +940,7 @@ function renderBonus(el){
     </tbody></table>`}
   </div>`;
 }
-function setBonusProgressivo(){const w=W();w.bonusProgressivo=+document.getElementById('bonusIni').value||0;const dEl=document.getElementById('bonusIniData');if(dEl)w.bonusIniData=dEl.value||'';save();render();toast('Riserva aggiornata');}
+function setBonusProgressivo(){const w=W();w.bonusProgressivo=+document.getElementById('bonusIni').value||0;if(!w.bonusIniData)w.bonusIniData=todayISO();save();render();toast('Riserva aggiornata');}
 function spendBonusInner(){
   const w=W();const potFat=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;
   const rim=mesiRimanenti();
