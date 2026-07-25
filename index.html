@@ -481,8 +481,7 @@ function bonusPots(){
   const anchorF=w.bonusFattureInizio||'9999-12-31';
   const bonusFatture=fattureAnno().filter(f=>(f.data||'')>=anchorF).reduce((s,f)=>s+(f.bonus||0),0);
   const pots=[
-    {id:'iniziale',nome:'Monte bonus iniziale',iniziale:w.bonusProgressivo||0,accrediti:0,prelievi:prelPot('iniziale'),info:'riserva già accantonata (fissa)'},
-    {id:'fatture',nome:'Monte bonus da fatture',iniziale:0,accrediti:bonusFatture,prelievi:prelPot('fatture'),info:'bonus delle fatture dal '+(w.bonusFattureInizio?fmtDate(w.bonusFattureInizio):'—')}
+    {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture,prelievi:prelPot('fatture')+prelPot('iniziale'),info:'riserva iniziale + bonus delle fatture'}
   ];
   (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{const spMese=prel.filter(p=>p.pot===x.id&&p.mese===cm).reduce((s,p)=>s+p.importo,0);pots.push({id:x.id,nome:x.nome,iniziale:0,accrediti:(x.importo||0),prelievi:spMese,mensile:x.importo,mese:cm,info:eur(x.importo)+'/mese · '+monthLabel(cm)});});
   pots.forEach(p=>p.saldo=p.iniziale+p.accrediti-p.prelievi);
@@ -497,9 +496,7 @@ function statoMeseBodyHTML(mese){
   const monthlyBonuses=(w.speseMensili||[]).filter(x=>x.tipo==='bonus');
   const donutColors=['#d95926','#c98500'];
   const pots=bonusPots();
-  const potIni=(pots.find(p=>p.id==='iniziale')||{saldo:0}).saldo;
-  const potFat=(pots.find(p=>p.id==='fatture')||{saldo:0}).saldo;
-  const monteTot=potIni+potFat;
+  const monteTot=(pots.find(p=>p.id==='fatture')||{saldo:0}).saldo;
   let wkSpent,wkBudget,wkLabel;
   if(mese===cm){const wk=weekKey(todayISO());wkSpent=w.spese.filter(s=>weekKey(s.data)===wk).reduce((a,s)=>a+s.importo,0);wkBudget=budgetWk;wkLabel='🛒 Settimana corrente';}
   else{wkSpent=spesePerMese(mese);wkBudget=budgetSettMensile;wkLabel='🛒 Budget settimanale (mese)';}
@@ -509,7 +506,7 @@ function statoMeseBodyHTML(mese){
     ${bonStato.map((b,i)=>`<div style="text-align:center;min-width:118px">${svgDonut(b.budget?b.speso/b.budget:0,b.speso>b.budget?'#f0616d':(donutColors[i]||'#9085e9'),eur0(b.budget-b.speso),'disp. / '+eur0(b.budget))}<div style="font-size:12px;color:var(--muted);margin-top:2px">🎁 ${esc(b.nome)}</div></div>`).join('')}
   </div>
   <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-    <div><div style="font-size:13px;color:var(--txt);font-weight:600">🎁 Monte bonus disponibile</div><div style="font-size:11px;color:var(--muted)">cumulativo iniziale ${eur(potIni)} + da fatture ${eur(potFat)}</div></div>
+    <div><div style="font-size:13px;color:var(--txt);font-weight:600">🎁 Monte bonus disponibile</div><div style="font-size:11px;color:var(--muted)">riserva iniziale + bonus delle fatture, al netto degli utilizzi</div></div>
     <div style="font-size:26px;font-weight:800;color:${monteTot<0?'var(--red)':'var(--violet)'}">${eur(monteTot)}</div>
   </div>`;
 }
@@ -533,12 +530,9 @@ function renderDashboard(el){
   const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+x.importo,0)||budgetWk*4;
   const speseMeseCorr=spesePerMese(cm);
   const progRow=(label,speso,bdg)=>{const pc=bdg?Math.min(100,speso/bdg*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${label}</span><span style="color:${speso>bdg?'var(--red)':'var(--muted)'}">${eur(speso)} / ${eur(bdg)}</span></div><div class="prog ${pc>=100?'over':pc>=80?'warn':''}"><span style="width:${pc}%"></span></div></div>`;};
-  const potIniD=(pots.find(p=>p.id==='iniziale')||{saldo:0}).saldo;
-  const potFatD=(pots.find(p=>p.id==='fatture')||{saldo:0}).saldo;
-  const monteBonusTot=potIniD+potFatD;
   const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:mb.importo};});
   const recentFuori=(w.prelieviBonus||[]).filter(p=>!isMonthlyPot(p.pot)).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
-  const potLabel=id=>id==='iniziale'?'Iniziale':id==='fatture'?'Fatture':id;
+  const potLabel=id=>'Monte bonus';
   const donutColors=['#d95926','#c98500'];
   const smSel=statoMeseSel();
   const tetto=w.tettoForfettario||85000;const usato=t.compensi;const residuoTetto=tetto-usato;const tettoPerc=tetto?Math.min(100,usato/tetto*100):0;
@@ -876,9 +870,8 @@ function openQuickAdd(){
 /* ============ BONUS (salvadanai) ============ */
 function renderBonus(el){
   const w=W();const pots=bonusPots();const tot=pots.reduce((s,p)=>s+p.saldo,0);
-  const potIni=pots.find(p=>p.id==='iniziale')||{saldo:0};
   const potFat=pots.find(p=>p.id==='fatture')||{saldo:0};
-  const potsMon=pots.filter(p=>p.id!=='iniziale'&&p.id!=='fatture');
+  const potsMon=pots.filter(p=>p.id!=='fatture');
   const prel=(w.prelieviBonus||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
   const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
@@ -890,26 +883,25 @@ function renderBonus(el){
   ${pageHead('Bonus','Il tuo monte bonus e la proiezione di quanto puoi spendere')}
   <div class="conto-hero">
     <div class="conto-main">
-      <div class="lbl">Monte bonus da fatture</div>
+      <div class="lbl">Monte bonus disponibile</div>
       <div class="big" style="color:${potFat.saldo<0?'var(--red)':'var(--violet)'}">${eur(potFat.saldo)}</div>
-      <div style="font-size:12px;color:var(--muted)">Cresce con ogni fattura emessa: è soprattutto da qui che dipende quanto potrai spendere nei prossimi mesi. La riserva iniziale è un monte separato (a lato), i bonus mensili sono a parte.</div>
-      <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Monte bonus iniziale (riserva già accantonata)</label><input type="number" inputmode="decimal" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
+      <div style="font-size:12px;color:var(--muted)">Riserva già accantonata + bonus di ogni fattura emessa, al netto degli utilizzi. È da qui che dipende quanto potrai spendere nei prossimi mesi. I bonus mensili sono gestiti a parte.</div>
+      <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Bonus già accantonato (riserva iniziale, parte del monte)</label><input type="number" inputmode="decimal" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
     </div>
     <div class="conto-side">
-      <div class="kpi violet"><div class="lbl">💰 Monte bonus iniziale</div><div class="val" style="font-size:20px;color:${potIni.saldo<0?'var(--red)':'var(--txt)'}">${eur(potIni.saldo)}</div><div class="sub">riserva fissa, in aggiunta</div></div>
       ${potsMon.map(p=>`<div class="kpi"><div class="lbl">📅 ${esc(p.nome)}</div><div class="val" style="font-size:20px;color:${p.saldo<0?'var(--red)':'var(--txt)'}">${eur(p.saldo)}</div><div class="sub">mese in corso</div></div>`).join('')}
     </div>
   </div>
-  <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi (monte fatture)</h3>
-    <div class="desc">Calcolo sul monte fatture ${eur(potFat.saldo)} ÷ ${rim} mesi rimanenti = ~${eur(mediaMese)}/mese. Le fatture future aumenteranno il monte. In più hai la riserva iniziale di ${eur(potIni.saldo)}, separata. I bonus mensili sono gestiti a parte.</div>
+  <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi</h3>
+    <div class="desc">Calcolo sul monte bonus ${eur(potFat.saldo)} ÷ ${rim} mesi rimanenti = ~${eur(mediaMese)}/mese. Le fatture future aumenteranno il monte. I bonus mensili sono gestiti a parte.</div>
     <div class="kpi-grid" style="margin-bottom:16px">
-      <div class="kpi violet"><div class="lbl">Monte fatture ora</div><div class="val" style="font-size:22px">${eur(potFat.saldo)}</div></div>
+      <div class="kpi violet"><div class="lbl">Monte bonus ora</div><div class="val" style="font-size:22px">${eur(potFat.saldo)}</div></div>
       <div class="kpi"><div class="lbl">Mesi rimanenti</div><div class="val" style="font-size:22px">${rim}</div></div>
       <div class="kpi green"><div class="lbl">Puoi spendere ~/mese</div><div class="val" style="font-size:22px">${eur(mediaMese)}</div></div>
     </div>
     ${rim>0?svgBars(remMesi.map(m=>({label:MESI[m-1].slice(0,3),value:mediaMese,color:'#9085e9'}))):'<div class="empty">Anno concluso.</div>'}
   </div>
-  <div class="card"><h3>🐷 Salvadanai</h3><div class="desc">I bonus mensili mostrano il valore del mese in corso (${monthLabel(curBonusMese())}), non il progressivo. Il monte fatture invece è cumulativo. Modifica gli importi mensili nella composizione in “Ordinario mensile”; i singoli mesi sono nel calendario qui sotto.</div>
+  <div class="card"><h3>🐷 Salvadanai</h3><div class="desc">I bonus mensili mostrano il valore del mese in corso (${monthLabel(curBonusMese())}), non il progressivo. Il monte bonus invece è cumulativo. Modifica gli importi mensili nella composizione in “Ordinario mensile”; i singoli mesi sono nel calendario qui sotto.</div>
     <table class="rtable"><thead><tr><th>Salvadanaio</th><th class="num">Iniziale</th><th class="num">Accreditato</th><th class="num">Prelevato</th><th class="num">Saldo</th></tr></thead><tbody>
     ${pots.map(p=>`<tr><td data-label="Salvadanaio" style="text-align:left"><b>${esc(p.nome)}</b><br><span style="font-size:11px;color:var(--muted)">${esc(p.info||'')}</span></td>
       <td class="num" data-label="Iniziale">${eur(p.iniziale)}</td><td class="num" data-label="Accreditato" style="color:var(--green)">${eur(p.accrediti)}</td>
@@ -937,19 +929,23 @@ function renderBonus(el){
 function setBonusProgressivo(){W().bonusProgressivo=+document.getElementById('bonusIni').value||0;save();render();toast('Progressivo aggiornato');}
 function setBonusRiserva(){W().bonusRiserva=+document.getElementById('bonusRis').value||0;save();render();toast('Riserva aggiornata');}
 function openPrelievoBonus(prePot,preMese){
-  const pots=bonusPots();const mesiOpts=mesiBonusList();const dm=preMese||curMonthKey();
+  const w=W();const mesiOpts=mesiBonusList();const dm=preMese||curMonthKey();
+  const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus',saldo:0};
+  const potOpts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];
+  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);const disp=(mb.importo||0)-speso;if(disp>0||mb.id===prePot)potOpts.push({id:mb.id,nome:mb.nome,saldo:disp});});
   document.getElementById('modal').innerHTML=`
     <div class="modal-head"><h3>Spesa / prelievo dal bonus</h3><button class="close-x" onclick="closeModal()">×</button></div>
     <div class="modal-body"><div class="form-grid">
       <div class="fld"><label>Data</label><input id="pb_data" type="date" value="${todayISO()}"></div>
-      <div class="fld"><label>Salvadanaio</label><select id="pb_pot">${pots.map(p=>`<option value="${p.id}" ${p.id===prePot?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('')}</select></div>
-      <div class="fld"><label>Mese di riferimento</label><select id="pb_mese">${mesiOpts.map(k=>`<option value="${k}" ${k===dm?'selected':''}>${monthLabel(k)}</option>`).join('')}</select></div>
+      <div class="fld"><label>Salvadanaio</label><select id="pb_pot">${potOpts.map(p=>`<option value="${p.id}" ${p.id===prePot?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('')}</select></div>
+      <div class="fld"><label>Mese di riferimento</label><select id="pb_mese" onchange="refreshPbPot()">${mesiOpts.map(k=>`<option value="${k}" ${k===dm?'selected':''}>${monthLabel(k)}</option>`).join('')}</select></div>
       <div class="fld"><label>Importo (€)</label><input id="pb_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
       <div class="fld" style="grid-column:1/-1"><label>Note</label><input id="pb_note" placeholder="es. viaggio, acquisto…"></div>
     </div></div>
     <div class="modal-foot"><button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button><button class="btn-sm" onclick="savePrelievoBonus()">Salva</button></div>`;
   document.getElementById('overlay').classList.add('show');
 }
+function refreshPbPot(){const w=W();const sel=document.getElementById('pb_pot');const meseEl=document.getElementById('pb_mese');if(!sel||!meseEl)return;const dm=meseEl.value;const cur=sel.value;const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus',saldo:0};const opts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];(w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);const disp=(mb.importo||0)-speso;if(disp>0||mb.id===cur)opts.push({id:mb.id,nome:mb.nome,saldo:disp});});sel.innerHTML=opts.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('');}
 function savePrelievoBonus(){
   const imp=+document.getElementById('pb_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const mEl=document.getElementById('pb_mese');
