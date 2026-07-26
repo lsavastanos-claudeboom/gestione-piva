@@ -28,16 +28,20 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 </script>
 <style>
 :root{
-  --bg:#0f1419; --panel:#171d26; --panel2:#1e2632; --line:#2a3441;
-  --txt:#e6edf3; --muted:#8b97a6; --accent:#4a9eff; --accent2:#2d7de0;
-  --green:#3fb950; --amber:#d9a441; --red:#f0616d; --violet:#a877f0;
-  --radius:12px; --shadow:0 4px 20px rgba(0,0,0,.35);
+  --bg:#0e1217; --panel:#161c25; --panel2:#1d2531; --line:#28313d;
+  --txt:#e8eef4; --muted:#8b97a6; --accent:#4a9eff; --accent2:#2d7de0;
+  --green:#3fb950; --amber:#d9a441; --red:#f0616d; --violet:#9085e9;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#9085e9; --smut:#5b6b8c;
+  --ink2:#c3c2b7; --axis:#8b97a6; --grid:#232c37; --baseline:#38424f;
+  --radius:14px; --shadow:0 6px 24px rgba(0,0,0,.40);
 }
 html.light{
   --bg:#eef1f6; --panel:#ffffff; --panel2:#f3f6fa; --line:#dce3ec;
   --txt:#1b2430; --muted:#5a6675; --accent:#2d7de0; --accent2:#1f6fd0;
-  --green:#1e9e4a; --amber:#b9791f; --red:#dc3546; --violet:#7a54e6;
-  --shadow:0 4px 18px rgba(30,50,80,.10);
+  --green:#1e9e4a; --amber:#b9791f; --red:#dc3546; --violet:#4a3aa7;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#4a3aa7; --smut:#9aa7b6;
+  --ink2:#52514e; --axis:#898781; --grid:#e6ebf1; --baseline:#c8d0da;
+  --shadow:0 6px 20px rgba(30,50,80,.12);
 }
 .filter-in{width:100%;max-width:300px;padding:9px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:13px;margin-bottom:14px}
 .filter-in::placeholder{color:var(--muted)}
@@ -49,6 +53,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{max-width:100%}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 button{font-family:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 input,select{font-family:inherit;font-size:14px}
 a{color:var(--accent)}
 #login,#cloudlogin{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 600px at 50% -10%,#1c2836,var(--bg));z-index:100}
@@ -89,16 +94,16 @@ a{color:var(--accent)}
 .logout:hover{border-color:var(--red);color:var(--red)}
 .main{flex:1;padding:26px 32px;max-width:1200px}
 .page-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:22px;flex-wrap:wrap;gap:12px}
-.page-head h2{font-size:22px}.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
+.page-head h2{font-size:23px;font-weight:700;letter-spacing:-.4px}.page-head p{color:var(--muted);font-size:13px;margin-top:2px}
 .regime-pill{font-size:11px;padding:3px 9px;border-radius:20px;background:#1d2b3d;border:1px solid var(--line);color:var(--accent);font-weight:600}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
 .kpi .lbl{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:6px}
-.kpi .val{font-size:24px;font-weight:700;letter-spacing:-.5px}
+.kpi .val{font-size:24px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
 .kpi .sub{font-size:12px;color:var(--muted);margin-top:4px}
 .kpi.accent{border-left:3px solid var(--accent)}
 .kpi.green .val{color:var(--green)}.kpi.amber .val{color:var(--amber)}.kpi.violet .val{color:var(--violet)}.kpi.red .val{color:var(--red)}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.10)}
 .card h3{font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
 .card .desc{color:var(--muted);font-size:12px;margin-bottom:16px}
 .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
@@ -119,8 +124,9 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .mini-btn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:5px 9px;font-size:12px;margin-left:4px}
 .mini-btn:hover{color:var(--txt);border-color:var(--accent)}
 .mini-btn.del:hover{color:var(--red);border-color:var(--red)}
-.btn-sm{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-weight:600;font-size:13px}
-.btn-sm:hover{background:var(--accent2)}
+.btn-sm{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:9px 16px;font-weight:600;font-size:13px;box-shadow:0 2px 10px rgba(74,158,255,.22);transition:background .15s,box-shadow .15s,transform .1s}
+.btn-sm:hover{background:var(--accent2);box-shadow:0 3px 14px rgba(74,158,255,.30)}
+.btn-sm:active{transform:translateY(1px)}
 .btn-ghost{background:none;border:1px solid var(--line);color:var(--muted)}
 .btn-ghost:hover{color:var(--txt);border-color:var(--accent)}
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
@@ -147,9 +153,10 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .bonus-badge{background:linear-gradient(135deg,rgba(168,119,240,.18),rgba(74,158,255,.12));border:1px solid var(--violet);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px}
 .bonus-badge b{color:var(--violet);font-size:18px}
 .conto-hero{display:flex;gap:20px;flex-wrap:wrap;align-items:stretch}
-.conto-main{flex:2;min-width:260px;background:linear-gradient(135deg,#16202c,#1a2836);border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+.conto-main{flex:2;min-width:260px;background:linear-gradient(135deg,#1a2536,#141b26);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:inset 0 1px 0 rgba(120,170,255,.08),0 8px 28px rgba(0,0,0,.18);position:relative;overflow:hidden}
+html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 6px 20px rgba(40,90,160,.08)}
 .conto-main .lbl{font-size:13px;color:var(--muted)}
-.conto-main .big{font-size:36px;font-weight:800;letter-spacing:-1px;margin:6px 0}
+.conto-main .big{font-size:37px;font-weight:800;letter-spacing:-1px;margin:6px 0;font-variant-numeric:tabular-nums}
 .conto-side{flex:1;min-width:200px;display:flex;flex-direction:column;gap:14px}
 .saldo-set{display:flex;align-items:center;gap:8px;margin-top:10px}
 .saldo-set input{width:130px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--txt);text-align:right}
@@ -522,7 +529,7 @@ function statoMeseBodyHTML(mese){
   const budgetWk=w.budgetSettimanale;
   const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+x.importo,0)||budgetWk*4;
   const monthlyBonuses=(w.speseMensili||[]).filter(x=>x.tipo==='bonus');
-  const donutColors=['#d95926','#c98500'];
+  const donutColors=['var(--s2)','var(--s4)'];
   const pots=bonusPots();
   const monteTot=(pots.find(p=>p.id==='fatture')||{saldo:0}).saldo;
   let wkSpent,wkBudget,wkLabel;
@@ -530,8 +537,8 @@ function statoMeseBodyHTML(mese){
   else{wkSpent=spesePerMese(mese);wkBudget=budgetSettMensile;wkLabel='🛒 Budget settimanale (mese)';}
   const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===mese).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:mb.importo};});
   return `<div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:space-around;align-items:start;margin:8px 0 2px">
-    <div style="text-align:center;min-width:118px">${svgDonut(wkBudget?wkSpent/wkBudget:0,wkSpent>wkBudget?'#f0616d':'#3987e5',eur0(wkBudget-wkSpent),'disp. / '+eur0(wkBudget))}<div style="font-size:12px;color:var(--muted);margin-top:2px">${wkLabel}</div></div>
-    ${bonStato.map((b,i)=>`<div style="text-align:center;min-width:118px">${svgDonut(b.budget?b.speso/b.budget:0,b.speso>b.budget?'#f0616d':(donutColors[i]||'#9085e9'),eur0(b.budget-b.speso),'disp. / '+eur0(b.budget))}<div style="font-size:12px;color:var(--muted);margin-top:2px">🎁 ${esc(b.nome)}</div></div>`).join('')}
+    <div style="text-align:center;min-width:118px">${svgDonut(wkBudget?wkSpent/wkBudget:0,wkSpent>wkBudget?'var(--red)':'var(--s1)',eur0(wkBudget-wkSpent),'disp. / '+eur0(wkBudget))}<div style="font-size:12px;color:var(--muted);margin-top:2px">${wkLabel}</div></div>
+    ${bonStato.map((b,i)=>`<div style="text-align:center;min-width:118px">${svgDonut(b.budget?b.speso/b.budget:0,b.speso>b.budget?'var(--red)':(donutColors[i]||'var(--s6)'),eur0(b.budget-b.speso),'disp. / '+eur0(b.budget))}<div style="font-size:12px;color:var(--muted);margin-top:2px">🎁 ${esc(b.nome)}</div></div>`).join('')}
   </div>
   <div style="border-top:1px solid var(--line);margin-top:12px;padding-top:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
     <div><div style="font-size:13px;color:var(--txt);font-weight:600">🎁 Monte bonus disponibile</div><div style="font-size:11px;color:var(--muted)">riserva iniziale + bonus delle fatture, al netto degli utilizzi</div></div>
@@ -561,7 +568,7 @@ function renderDashboard(el){
   const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:mb.importo};});
   const recentFuori=prelieviAnno().filter(p=>!isMonthlyPot(p.pot)).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
   const potLabel=id=>'Monte bonus';
-  const donutColors=['#d95926','#c98500'];
+  const donutColors=['var(--s2)','var(--s4)'];
   const smSel=statoMeseSel();
   const tetto=w.tettoForfettario||85000;const usato=t.compensi;const residuoTetto=tetto-usato;const tettoPerc=tetto?Math.min(100,usato/tetto*100):0;
   const pj=w.proiezione||{};const bonusTarget=pj.target||85000;const bonusAnnuoPrev=proietta(bonusTarget).bonusAnnuo;const bonusUsato=fattureAnno().reduce((s,f)=>s+(f.bonus||0),0);const bonusUsatoPerc=bonusAnnuoPrev>0?Math.min(100,bonusUsato/bonusAnnuoPrev*100):0;const bonusResiduo=bonusAnnuoPrev-bonusUsato;
@@ -576,7 +583,7 @@ function renderDashboard(el){
   const deltaPercMonte=mediaPrevMonte>0?((curSpesaMonte-mediaPrevMonte)/mediaPrevMonte*100):null;
   const deltaTxtMonte=(deltaPercMonte===null)?(curSpesaMonte>0?'—':'—'):((deltaPercMonte>=0?'+':'')+Math.round(deltaPercMonte)+'%');
   const deltaClassMonte=(deltaPercMonte===null)?'':(deltaPercMonte>0?'red':(deltaPercMonte<0?'green':''));
-  const spesaMonteBars=spesaMonteMesi.map(f=>({label:f.label.slice(0,3),value:f.uscite,color:f.corrente?'#9085e9':'#5b6b8c'}));
+  const spesaMonteBars=spesaMonteMesi.map(f=>({label:f.label.slice(0,3),value:f.uscite,color:f.corrente?'var(--s6)':'var(--smut)'}));
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
   <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
@@ -592,7 +599,7 @@ function renderDashboard(el){
       <div class="kpi"><div class="lbl">Media / mese</div><div class="val" style="font-size:20px">${eur(mediaFuoriD)}</div></div>
       <div class="kpi"><div class="lbl">Questo mese</div><div class="val" style="font-size:20px">${eur(fuoriCorrD)}</div></div>
     </div>
-    ${moDataD.length>=2?svgArea(moDataD,{color:'#9085e9',h:190}):moDataD.length?svgBars(moDataD,{color:'#9085e9',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}
+    ${moDataD.length>=2?svgArea(moDataD,{color:'var(--s6)',h:190}):moDataD.length?svgBars(moDataD,{color:'var(--s6)',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}
     ${recentFuori.length?`<table class="rtable" style="margin-top:16px"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div style="font-size:12px;color:var(--muted);margin-top:12px">Nessuna spesa dai bonus registrata finora.</div>'}
   </div>
   <div class="card"><div class="card-head"><h3>💸 Spesa dal monte bonus — ${monthLabel(cm)}</h3></div>
@@ -602,7 +609,7 @@ function renderDashboard(el){
       <div class="kpi"><div class="lbl">Media mesi precedenti</div><div class="val" style="font-size:20px">${prevNMonte?eur(mediaPrevMonte):'—'}</div><div class="sub">${prevNMonte?(prevNMonte+' mes'+(prevNMonte>1?'i':'e')+' precedenti'):'nessun mese ancora'}</div></div>
       <div class="kpi ${deltaClassMonte}"><div class="lbl">vs media</div><div class="val" style="font-size:20px">${prevNMonte&&deltaPercMonte!==null?deltaTxtMonte:'—'}</div><div class="sub">${meseScorsoMonte?('mese scorso '+eur(meseScorsoMonte.uscite)):'primo periodo di utilizzo'}</div></div>
     </div>
-    ${spesaMonteBars.some(b=>b.value>0)?svgBars(spesaMonteBars,{color:'#9085e9',h:180}):'<div class="empty">Nessun utilizzo dal monte registrato finora. Quando registri una spesa dal monte bonus, qui vedrai l\'andamento mese per mese e il confronto.</div>'}
+    ${spesaMonteBars.some(b=>b.value>0)?svgBars(spesaMonteBars,{color:'var(--s6)',h:180}):'<div class="empty">Nessun utilizzo dal monte registrato finora. Quando registri una spesa dal monte bonus, qui vedrai l\'andamento mese per mese e il confronto.</div>'}
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin:30px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">📊 Panoramica ${w.anno}</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
   <div class="kpi-grid">
@@ -617,7 +624,7 @@ function renderDashboard(el){
   </div>`:''}
   <div class="card"><div class="card-head"><h3>🎁 Bonus ${w.anno} previsto</h3><span style="font-size:12px;color:var(--muted)">tetto ${eur(bonusAnnuoPrev)} · fatturato ${eur(bonusTarget)}</span></div>
     <div style="display:flex;align-items:center;gap:26px;flex-wrap:wrap;margin-top:6px">
-      <div style="flex-shrink:0">${svgDonut(bonusAnnuoPrev>0?bonusUsato/bonusAnnuoPrev:0,bonusUsato>bonusAnnuoPrev?'#c98500':'#9085e9',Math.round(bonusUsatoPerc)+'%','maturato')}</div>
+      <div style="flex-shrink:0">${svgDonut(bonusAnnuoPrev>0?bonusUsato/bonusAnnuoPrev:0,bonusUsato>bonusAnnuoPrev?'var(--s4)':'var(--s6)',Math.round(bonusUsatoPerc)+'%','maturato')}</div>
       <div style="flex:1;min-width:180px">
         <div style="font-size:12px;color:var(--muted)">🎁 Bonus maturato dalle fatture emesse</div>
         <div style="font-size:32px;font-weight:800;color:${bonusUsato<0?'var(--red)':'var(--violet)'};line-height:1.05;margin:3px 0 8px">${eur(bonusUsato)}</div>
@@ -949,7 +956,7 @@ function renderBonus(el){
         <span style="font-size:12px;color:var(--muted)">❄️ Tengo fermo<br><b id="freezeVal" style="color:var(--txt);font-size:19px">${eur(freeze)}</b></span>
         <span style="font-size:12px;color:var(--muted);text-align:right">💸 Disponibile per i mesi<br><b id="freezeDisp" style="color:var(--violet);font-size:19px">${eur(Math.max(0,potFat.saldo-freeze))}</b></span>
       </div>
-      <input type="range" id="bonusFreezeSlider" aria-label="Importo del monte bonus da tenere fermo" min="0" max="${Math.max(0,Math.round(potFat.saldo))}" step="100" value="${Math.round(freeze)}" oninput="setBonusFreeze(this.value)" style="width:100%;accent-color:#3987e5">
+      <input type="range" id="bonusFreezeSlider" aria-label="Importo del monte bonus da tenere fermo" min="0" max="${Math.max(0,Math.round(potFat.saldo))}" step="100" value="${Math.round(freeze)}" oninput="setBonusFreeze(this.value)" style="width:100%;accent-color:var(--accent)">
       <div style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">Monte totale ${eur(potFat.saldo)} · lo slider si muove di 100 € per volta</div>
     </div>
     <div id="spendBody">${spendBonusInner()}</div>
@@ -964,7 +971,7 @@ function renderBonus(el){
   </div>
   <div class="card"><div class="card-head"><h3>📈 Storico monte a fine mese</h3></div>
     <div class="desc">Per ogni mese, da adesso in avanti: le entrate nel monte (bonus delle fatture), le uscite (utilizzi registrati) e il totale bonus disponibile a fine mese. I mesi ancora da venire mostrano il valore previsto in base ai dati inseriti finora.</div>
-    ${storicoFwd.length?svgBars(storicoFwd.map(s=>({label:s.label.slice(0,3),value:s.monte,color:s.futuro?'#5b6b8c':'#9085e9'}))):''}
+    ${storicoFwd.length?svgBars(storicoFwd.map(s=>({label:s.label.slice(0,3),value:s.monte,color:s.futuro?'var(--smut)':'var(--s6)'}))):''}
     <table class="rtable"><thead><tr><th>Fine mese</th><th class="num">Entrate</th><th class="num">Uscite</th><th class="num">Monte disponibile</th></tr></thead><tbody>
     ${storicoFwd.map(s=>`<tr>
       <td data-label="Fine mese"><b>${monthLabel(s.mese)}</b>${s.futuro?' <span style="font-size:10px;color:var(--muted)">previsto</span>':''}</td>
@@ -993,7 +1000,7 @@ function spendBonusInner(){
     <div class="kpi"><div class="lbl">Mesi rimanenti</div><div class="val" style="font-size:22px">${rim}</div></div>
     <div class="kpi green"><div class="lbl">Puoi spendere ~/mese</div><div class="val" style="font-size:22px">${eur(media)}</div></div>
   </div>
-  ${rim>0?svgBars(remMesi.map(m=>({label:MESI[m-1].slice(0,3),value:media,color:'#9085e9'}))):'<div class="empty">Anno concluso.</div>'}`;
+  ${rim>0?svgBars(remMesi.map(m=>({label:MESI[m-1].slice(0,3),value:media,color:'var(--s6)'}))):'<div class="empty">Anno concluso.</div>'}`;
 }
 function setBonusFreeze(v){const w=W();const potFat=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;w.bonusFreeze=Math.min(Math.max(0,+v||0),Math.max(0,potFat));save();const fv=document.getElementById('freezeVal');if(fv)fv.textContent=eur(w.bonusFreeze);const fd=document.getElementById('freezeDisp');if(fd)fd.textContent=eur(Math.max(0,potFat-w.bonusFreeze));const sb=document.getElementById('spendBody');if(sb)sb.innerHTML=spendBonusInner();}
 function setBonusRiserva(){W().bonusRiserva=+document.getElementById('bonusRis').value||0;save();render();toast('Riserva aggiornata');}
@@ -1098,30 +1105,32 @@ function saveProiezione(){
 
 /* ============ STATISTICHE (grafici SVG) ============ */
 function svgBars(data,o){o=o||{};const w=o.w||560,h=o.h||210,fmt=o.fmt||eur,budget=o.budget||null;
-  const pad={l:8,r:8,t:22,b:34};const iw=w-pad.l-pad.r,ih=h-pad.t-pad.b;
-  const max=Math.max(budget||0,...data.map(d=>d.value),1);const bw=iw/(data.length||1);const barw=Math.min(48,bw*0.62);
-  let g='';data.forEach((d,i)=>{const x=pad.l+bw*i+bw/2;const bh=ih*(d.value/max);const y=pad.t+ih-bh;
-    g+=`<rect x="${(x-barw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${barw.toFixed(1)}" height="${Math.max(bh,0).toFixed(1)}" rx="4" fill="${d.color||'#3987e5'}"><title>${esc(d.label)}: ${fmt(d.value)}</title></rect>`;
-    g+=`<text x="${x.toFixed(1)}" y="${pad.t+ih+14}" text-anchor="middle" font-size="10" fill="#8b97a6">${esc(d.label)}</text>`;
-    if(d.value>0)g+=`<text x="${x.toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-size="10" fill="#c3c2b7">${fmt(d.value)}</text>`;});
-  let bl='';if(budget){const by=pad.t+ih-ih*(budget/max);bl=`<line x1="${pad.l}" y1="${by.toFixed(1)}" x2="${w-pad.r}" y2="${by.toFixed(1)}" stroke="#c98500" stroke-dasharray="4 3" stroke-width="1.5"/><text x="${w-pad.r}" y="${(by-4).toFixed(1)}" text-anchor="end" font-size="10" fill="#c98500">budget ${fmt(budget)}</text>`;}
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px;height:auto">${bl}${g}</svg>`;
+  const pad={l:8,r:8,t:24,b:34};const iw=w-pad.l-pad.r,ih=h-pad.t-pad.b;
+  const max=Math.max(budget||0,...data.map(d=>d.value),1);const bw=iw/(data.length||1);const barw=Math.min(44,bw*0.56);const baseY=pad.t+ih;
+  let g='';data.forEach((d,i)=>{const x=pad.l+bw*i+bw/2;const bh=ih*(d.value/max);const y=baseY-bh;
+    g+=`<rect x="${(x-barw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${barw.toFixed(1)}" height="${Math.max(bh,0).toFixed(1)}" rx="4" fill="${d.color||'var(--s1)'}"><title>${esc(d.label)}: ${fmt(d.value)}</title></rect>`;
+    g+=`<text x="${x.toFixed(1)}" y="${baseY+15}" text-anchor="middle" font-size="10" fill="var(--axis)">${esc(d.label)}</text>`;
+    if(d.value>0)g+=`<text x="${x.toFixed(1)}" y="${(y-6).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="600" fill="var(--ink2)" style="font-variant-numeric:tabular-nums">${fmt(d.value)}</text>`;});
+  let bl='';if(budget){const by=baseY-ih*(budget/max);bl=`<line x1="${pad.l}" y1="${by.toFixed(1)}" x2="${w-pad.r}" y2="${by.toFixed(1)}" stroke="var(--s4)" stroke-dasharray="4 3" stroke-width="1.5"/><text x="${w-pad.r}" y="${(by-4).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--s4)">budget ${fmt(budget)}</text>`;}
+  const base=`<line x1="${pad.l}" y1="${baseY.toFixed(1)}" x2="${(w-pad.r).toFixed(1)}" y2="${baseY.toFixed(1)}" stroke="var(--baseline)" stroke-width="1"/>`;
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px;height:auto">${base}${bl}${g}</svg>`;
 }
-function svgHBars(data,o){o=o||{};const w=o.w||560,fmt=o.fmt||eur,rowH=30;const color=o.color||'#3987e5';
+function svgHBars(data,o){o=o||{};const w=o.w||560,fmt=o.fmt||eur,rowH=30;const color=o.color||'var(--s1)';
   const max=Math.max(...data.map(d=>d.value),1);const labelW=150,pad=8,barMax=w-labelW-pad-90,h=data.length*rowH+8;
   let g='';data.forEach((d,i)=>{const y=i*rowH+6;const bw=barMax*(d.value/max);
-    g+=`<text x="${pad}" y="${y+rowH/2}" font-size="12" fill="#c3c2b7" dominant-baseline="middle">${esc(d.label)}</text>`;
+    g+=`<text x="${pad}" y="${y+rowH/2}" font-size="12" fill="var(--ink2)" dominant-baseline="middle">${esc(d.label)}</text>`;
     g+=`<rect x="${labelW}" y="${y+4}" width="${Math.max(bw,2).toFixed(1)}" height="${rowH-12}" rx="4" fill="${d.color||color}"><title>${esc(d.label)}: ${fmt(d.value)}</title></rect>`;
-    g+=`<text x="${(labelW+Math.max(bw,2)+6).toFixed(1)}" y="${y+rowH/2}" font-size="11" fill="#8b97a6" dominant-baseline="middle">${fmt(d.value)}</text>`;});
+    g+=`<text x="${(labelW+Math.max(bw,2)+6).toFixed(1)}" y="${y+rowH/2}" font-size="11" fill="var(--axis)" dominant-baseline="middle" style="font-variant-numeric:tabular-nums">${fmt(d.value)}</text>`;});
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px;height:auto">${g}</svg>`;
 }
-function svgArea(points,o){o=o||{};const w=o.w||560,h=o.h||200,fmt=o.fmt||eur,color=o.color||'#9085e9';
-  const pad={l:8,r:8,t:20,b:24};const iw=w-pad.l-pad.r,ih=h-pad.t-pad.b;const max=Math.max(...points.map(p=>p.value),1);
+function svgArea(points,o){o=o||{};const w=o.w||560,h=o.h||200,fmt=o.fmt||eur,color=o.color||'var(--s6)';
+  const pad={l:8,r:8,t:20,b:26};const iw=w-pad.l-pad.r,ih=h-pad.t-pad.b;const max=Math.max(...points.map(p=>p.value),1);const baseY=pad.t+ih;
   const X=i=>pad.l+iw*(i/((points.length-1)||1)),Y=v=>pad.t+ih-ih*(v/max);
   let ln='';points.forEach((p,i)=>{ln+=(i?'L':'M')+X(i).toFixed(1)+' '+Y(p.value).toFixed(1)+' ';});
-  const ar=`M${X(0).toFixed(1)} ${(pad.t+ih).toFixed(1)} `+points.map((p,i)=>`L${X(i).toFixed(1)} ${Y(p.value).toFixed(1)}`).join(' ')+` L${X(points.length-1).toFixed(1)} ${(pad.t+ih).toFixed(1)} Z`;
-  let dots='',lab='';points.forEach((p,i)=>{dots+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.value).toFixed(1)}" r="3" fill="${color}"><title>${esc(p.label)}: ${fmt(p.value)}</title></circle>`;if(i%2===0||i===points.length-1)lab+=`<text x="${X(i).toFixed(1)}" y="${pad.t+ih+14}" text-anchor="middle" font-size="9" fill="#8b97a6">${esc(p.label)}</text>`;});
-  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px;height:auto"><path d="${ar}" fill="${color}22"/><path d="${ln}" fill="none" stroke="${color}" stroke-width="2"/>${dots}${lab}</svg>`;
+  const ar=`M${X(0).toFixed(1)} ${baseY.toFixed(1)} `+points.map((p,i)=>`L${X(i).toFixed(1)} ${Y(p.value).toFixed(1)}`).join(' ')+` L${X(points.length-1).toFixed(1)} ${baseY.toFixed(1)} Z`;
+  let dots='',lab='';points.forEach((p,i)=>{dots+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.value).toFixed(1)}" r="3.5" fill="${color}" stroke="var(--panel)" stroke-width="1.5"><title>${esc(p.label)}: ${fmt(p.value)}</title></circle>`;if(i%2===0||i===points.length-1)lab+=`<text x="${X(i).toFixed(1)}" y="${baseY+14}" text-anchor="middle" font-size="9" fill="var(--axis)">${esc(p.label)}</text>`;});
+  const base=`<line x1="${pad.l}" y1="${baseY.toFixed(1)}" x2="${(w-pad.r).toFixed(1)}" y2="${baseY.toFixed(1)}" stroke="var(--baseline)" stroke-width="1"/>`;
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px;height:auto">${base}<path d="${ar}" fill="${color}" fill-opacity="0.14"/><path d="${ln}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>${dots}${lab}</svg>`;
 }
 function eur0(v){return Math.round(v).toLocaleString('it-IT')+' €';}
 function svgDonut(frac,color,centerText,subText){
@@ -1131,13 +1140,13 @@ function svgDonut(frac,color,centerText,subText){
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--line)" stroke-width="${stroke}"/>
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 ${cx} ${cy})"/>
     <text x="${cx}" y="${cy-1}" text-anchor="middle" font-size="17" font-weight="800" fill="var(--txt)">${centerText}</text>
-    ${subText?`<text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="10" fill="#8b97a6">${subText}</text>`:''}
+    ${subText?`<text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="10" fill="var(--axis)">${subText}</text>`:''}
   </svg>`;
 }
 function renderStat(el){
   const w=W();const t=totali();const riservato=Object.values(ordinarioPerMese()).reduce((s,v)=>s+v,0);
   const pots=bonusPots();
-  const rip=[{label:'Imposte',value:t.imposte,color:'#c98500'},{label:'Ordinario',value:riservato,color:'#199e70'},{label:'Bonus',value:t.bonus,color:'#9085e9'}].filter(d=>d.value>0);
+  const rip=[{label:'Imposte',value:t.imposte,color:'var(--s4)'},{label:'Ordinario',value:riservato,color:'var(--s3)'},{label:'Bonus',value:t.bonus,color:'var(--s6)'}].filter(d=>d.value>0);
   const catMap={};speseAnno().forEach(s=>{const c=s.categoria||'Altro';catMap[c]=(catMap[c]||0)+s.importo;});
   const cats=Object.entries(catMap).map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value);
   const wkMap={};speseAnno().forEach(s=>{const k=weekKey(s.data);if(!wkMap[k])wkMap[k]={tot:0,sample:s.data};wkMap[k].tot+=s.importo;});
@@ -1169,15 +1178,15 @@ function renderStat(el){
   <div class="card"><h3>💰 Ripartizione del fatturato ${w.anno}</h3><div class="desc">Come si dividono i ${eur(t.compensi)} di compensi · rivalsa ${eur(t.integrativo)} gestita a parte</div>
     ${rip.length?svgHBars(rip):'<div class="empty">Nessuna fattura registrata.</div>'}</div>
   <div class="card"><h3>🎁 Salvadanai bonus — saldo attuale</h3><div class="desc">Totale disponibile ${eur(pots.reduce((s,p)=>s+p.saldo,0))}</div>
-    ${svgBars(pots.map((p,i)=>({label:p.nome.replace('Bonus ','').replace('mensile ',''),value:p.saldo,color:['#9085e9','#3987e5','#d55181'][i]||'#9085e9'})))}</div>
+    ${svgBars(pots.map((p,i)=>({label:p.nome.replace('Bonus ','').replace('mensile ',''),value:p.saldo,color:['var(--s6)','var(--s1)','var(--s5)'][i]||'var(--s6)'})))}</div>
   <div class="card"><h3>📈 Accumulo previsto bonus mensili</h3><div class="desc">${eur(mensile)}/mese accantonati, cumulati sull'anno (fino a ${eur(cum)})</div>
     ${svgArea(bonusMens)}</div>
   <div class="card"><h3>🛒 Spese settimanali</h3><div class="desc">Ultime settimane · budget ${eur(w.budgetSettimanale)}/sett.</div>
-    ${wkData.length?svgBars(wkData,{budget:w.budgetSettimanale,color:'#3987e5'}):'<div class="empty">Registra spese settimanali per vedere l\'andamento.</div>'}</div>
+    ${wkData.length?svgBars(wkData,{budget:w.budgetSettimanale,color:'var(--s1)'}):'<div class="empty">Registra spese settimanali per vedere l\'andamento.</div>'}</div>
   <div class="card"><h3>🧾 Spese settimanali per categoria</h3>
-    ${cats.length?svgHBars(cats,{color:'#d95926'}):'<div class="empty">Nessuna spesa registrata.</div>'}</div>
+    ${cats.length?svgHBars(cats,{color:'var(--s2)'}):'<div class="empty">Nessuna spesa registrata.</div>'}</div>
   <div class="card"><h3>🏠 Spese mensili fisse per voce</h3><div class="desc">Le voci di spesa del fabbisogno mensile</div>
-    ${comp.length?svgHBars(comp,{color:'#199e70'}):'<div class="empty">Nessuna voce.</div>'}</div>`;
+    ${comp.length?svgHBars(comp,{color:'var(--s3)'}):'<div class="empty">Nessuna voce.</div>'}</div>`;
 }
 
 /* ============ IMPOSTAZIONI ============ */
