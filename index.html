@@ -230,12 +230,13 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   input,select,textarea{font-size:16px}
   #fab{bottom:calc(18px + env(safe-area-inset-bottom));right:16px}
   table.rtable thead{display:none}
-  table.rtable tr{display:block;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:4px 12px;background:var(--panel2)}
+  table.rtable tr{display:block;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;padding:1px 11px;background:var(--panel2)}
   table.rtable tr:hover td{background:none}
-  table.rtable td{display:flex;justify-content:space-between;align-items:center;gap:14px;border:none;border-bottom:1px solid rgba(255,255,255,.05);padding:9px 0;text-align:right;font-size:14px;min-width:0}
+  table.rtable td{display:flex;justify-content:space-between;align-items:center;gap:12px;border:none;border-bottom:1px solid rgba(255,255,255,.05);padding:5px 0;text-align:right;font-size:13px;min-width:0}
   table.rtable td:last-child{border-bottom:none}
-  table.rtable td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:500;text-align:left;white-space:nowrap}
+  table.rtable td::before{content:attr(data-label);color:var(--muted);font-size:11px;font-weight:500;text-align:left;white-space:nowrap}
   table.rtable td:empty{display:none}
+  table.rtable td.sm-hide{display:none}
   .casc .r{font-size:13px;padding:8px 10px}
   .casc .r.big{font-size:14px}
   .scad .item{min-width:calc(50% - 5px)}
@@ -647,7 +648,7 @@ function renderFatture(el){
     <table class="rtable"><thead><tr><th>N.</th><th>Data</th><th>Cliente</th><th class="num">Compenso</th><th class="num">Rivalsa</th><th class="num">Totale</th><th class="num">Da versare</th><th class="num">Bonus</th><th>Stato</th><th></th></tr></thead><tbody id="fattureTbody">
     ${fs.map(f=>`<tr><td data-label="N.">${esc(f.numero||'—')}</td><td data-label="Data">${fmtDate(f.data)}</td>
       <td data-label="Cliente">${esc(f.cliente||'—')}${f.descrizione?(' <span style="font-size:11px;color:var(--muted)">· '+esc(f.descrizione)+'</span>'):''}</td>
-      <td class="num" data-label="Compenso">${eur(f.compenso)}</td><td class="num" data-label="Rivalsa" style="color:var(--muted)">${eur(f.rivalsa||0)}</td>
+      <td class="num sm-hide" data-label="Compenso">${eur(f.compenso)}</td><td class="num sm-hide" data-label="Rivalsa" style="color:var(--muted)">${eur(f.rivalsa||0)}</td>
       <td class="num" data-label="Totale"><b>${eur(f.totaleFattura)}</b></td>
       <td class="num" data-label="Da versare" style="color:var(--amber)">${eur(fVersare(f))}</td>
       <td class="num" data-label="Bonus" style="color:var(--violet)">${eur(f.bonus)}</td>
