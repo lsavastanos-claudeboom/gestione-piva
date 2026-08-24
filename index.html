@@ -185,6 +185,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 .drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:55;opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s}
 .drawer-backdrop.open{opacity:1;visibility:visible}
 #fab{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:30px;line-height:1;box-shadow:var(--shadow);z-index:45;display:flex;align-items:center;justify-content:center;padding-bottom:3px}
+.bottomnav{display:none}
 #fab:hover{background:var(--accent2)}
 @media(min-width:900px){#fab{display:none}}
 @media(max-width:900px) and (min-width:641px){.sidebar{width:60px;padding:14px 6px}.brand b,.brand span,.nav button span:not(.ic),.side-foot .txt{display:none}.main{padding:18px}}
@@ -202,7 +203,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   .nav button.active{background:#1d2b3d;color:var(--txt)}
   .nav button .ic{font-size:18px}
   .nav button span:not(.ic){font-size:15px;line-height:1.2;white-space:normal;overflow:visible;text-overflow:clip;max-width:none;text-align:left}
-  .main{padding:calc(env(safe-area-inset-top) + 66px) 14px 90px;max-width:100%;width:100%}
+  .main{padding:calc(env(safe-area-inset-top) + 66px) 14px calc(78px + env(safe-area-inset-bottom));max-width:100%;width:100%}
   .page-head{margin-bottom:16px}
   .page-head h2{font-size:19px}
   .regime-pill{font-size:10px}
@@ -229,7 +230,14 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   .modal-body{padding:18px}
   th,td{padding:8px 6px;font-size:13px}
   input,select,textarea{font-size:16px}
-  #fab{bottom:calc(18px + env(safe-area-inset-bottom));right:16px}
+  #fab{bottom:calc(74px + env(safe-area-inset-bottom));right:16px}
+  .bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:44;background:var(--panel);border-top:1px solid var(--line);padding:6px 4px calc(5px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.20)}
+  .bottomnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);padding:5px 2px 3px;position:relative}
+  .bottomnav button .bic{font-size:21px;line-height:1;opacity:.85}
+  .bottomnav button .blbl{font-size:10px;font-weight:600;letter-spacing:.2px}
+  .bottomnav button.active{color:var(--accent)}
+  .bottomnav button.active .bic{opacity:1}
+  .bottomnav button.active::before{content:"";position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:24px;height:3px;border-radius:0 0 4px 4px;background:var(--accent)}
   table.rtable thead{display:none}
   table.rtable tr{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;padding:12px 13px;background:var(--panel2)}
   table.rtable tr:hover td{background:none}
@@ -303,6 +311,13 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   <main class="main" id="view"></main>
 </div>
 <button id="fab" onclick="openQuickAdd()" title="Nuovo inserimento">+</button>
+<nav class="bottomnav" id="bottomnav">
+  <button data-v="dashboard" class="active" onclick="goTo('dashboard')"><span class="bic">◧</span><span class="blbl">Home</span></button>
+  <button data-v="spese" onclick="goTo('spese')"><span class="bic">🛒</span><span class="blbl">Spese</span></button>
+  <button data-v="bonus" onclick="goTo('bonus')"><span class="bic">🎁</span><span class="blbl">Bonus</span></button>
+  <button data-v="fatture" onclick="goTo('fatture')"><span class="bic">🧾</span><span class="blbl">Fatture</span></button>
+  <button data-v="conto" onclick="goTo('conto')"><span class="bic">🏦</span><span class="blbl">Conto</span></button>
+</nav>
 </div>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
@@ -458,7 +473,7 @@ function initApp(){
   document.getElementById('curAv').textContent=(u.nome||'U').charAt(0).toUpperCase();
   document.getElementById('curPiva').textContent=w.denominazione||(w.partitaIva?('P.IVA '+w.partitaIva):'P.IVA da configurare');
   document.getElementById('brandYear').textContent='Anno '+w.anno;
-  document.querySelectorAll('#nav button').forEach(b=>{b.classList.toggle('active',b.dataset.v===view);b.onclick=()=>{view=b.dataset.v;document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x===b));setTopTitle(b);closeDrawer();render();};});
+  document.querySelectorAll('#nav button').forEach(b=>{b.classList.toggle('active',b.dataset.v===view);b.onclick=()=>goTo(b.dataset.v);});document.querySelectorAll('.bottomnav button').forEach(b=>b.classList.toggle('active',b.dataset.v===view));
   setTopTitle(document.querySelector('#nav button[data-v="'+view+'"]'));
   render();
 }
@@ -467,7 +482,7 @@ function closeDrawer(){const s=document.querySelector('.sidebar');const bd=docum
 function setTopTitle(b){const t=document.getElementById('topbarTitle');if(t&&b){const sp=b.querySelector('span:not(.ic)');if(sp)t.textContent=sp.textContent;}}
 function render(){({dashboard:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:renderSpese,bonus:renderBonus,proiezione:renderProiezione,stat:renderStat,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
 function pageHead(title,sub){const w=W();return `<div class="page-head"><div><h2>${title}</h2><p>${sub}</p></div><span class="regime-pill">${esc(state.utenti[currentUser].nome)} · ${w.regimeAttivo} · ${w.anno}</span></div>`;}
-function goTo(v){view=v;document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));setTopTitle(document.querySelector('#nav button[data-v="'+v+'"]'));closeDrawer();render();}
+function goTo(v){view=v;document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));document.querySelectorAll('.bottomnav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));setTopTitle(document.querySelector('#nav button[data-v="'+v+'"]'));closeDrawer();render();}
 
 /* ============ AGGREGAZIONI ============ */
 function totali(){
