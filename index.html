@@ -632,30 +632,28 @@ function renderDashboard(el){
     <div class="desc">Spesa settimanale, bonus mensili tipo 1/2 e monte bonus accumulato · usa lo slider per vedere i mesi successivi in anticipo</div>
     <div id="statoMeseBody">${statoMeseBodyHTML(smSel.sel)}</div>
   </div>
-  <div class="card"><div class="card-head"><h3>➕ Registra spesa</h3><button class="btn-sm" onclick="openQuickAdd()">+ Registra spesa</button></div>
-    <div class="desc">Registra una spesa di qualsiasi tipo · sotto le ultime 5 spese dai bonus (fuori dai ${eur(fab)} fissi) e l'andamento mensile</div>
+  <div class="card"><div class="card-head"><h3>💸 Spese dal monte bonus</h3><button class="btn-sm desk-only" onclick="openQuickAdd()">+ Registra spesa</button></div>
+    <div class="desc">Quanto usi dal monte bonus (fuori dai ${eur(fab)} fissi) · andamento mensile e settimanale, con gli ultimi movimenti</div>
     <div class="kpi-grid" style="margin:6px 0 16px">
-      <div class="kpi violet"><div class="lbl">Totale ${w.anno}</div><div class="val" style="font-size:20px">${eur(totFuoriD)}</div></div>
+      <div class="kpi violet"><div class="lbl">Questo mese</div><div class="val" style="font-size:20px">${eur(curSpesaMonte)}</div></div>
       <div class="kpi"><div class="lbl">Media / mese</div><div class="val" style="font-size:20px">${eur(mediaFuoriD)}</div></div>
-      <div class="kpi"><div class="lbl">Questo mese</div><div class="val" style="font-size:20px">${eur(fuoriCorrD)}</div></div>
+      <div class="kpi"><div class="lbl">Totale ${w.anno}</div><div class="val" style="font-size:20px">${eur(totFuoriD)}</div></div>
     </div>
-    ${moDataD.length>=2?svgArea(moDataD,{color:'var(--s6)',h:190}):moDataD.length?svgBars(moDataD,{color:'var(--s6)',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}
-    ${recentFuori.length?`<div class="desk-only"><table class="rtable" style="margin-top:16px"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${recentFuori.map(r=>`<div class="recent-item"><div class="ri-main"><div class="ri-voce">${esc(r.note||'—')}</div><div class="ri-date">${fmtDate(r.data)}</div></div><div class="ri-amt">${eur(r.importo)}</div><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')" title="Elimina">🗑</button></div>`).join('')}</div>`:'<div style="font-size:12px;color:var(--muted);margin-top:12px">Nessuna spesa dai bonus registrata finora.</div>'}
-  </div>
-  <div class="card"><div class="card-head"><h3>💸 Spesa dal monte bonus — ${monthLabel(cm)}</h3></div>
-    <div class="desc">Quanto stai spendendo dal monte bonus ogni mese, con il confronto rispetto ai mesi precedenti dello stesso periodo.</div>
-    <div class="kpi-grid" style="margin:6px 0 16px">
-      <div class="kpi violet"><div class="lbl">Speso questo mese</div><div class="val" style="font-size:20px">${eur(curSpesaMonte)}</div></div>
-      <div class="kpi"><div class="lbl">Media mesi precedenti</div><div class="val" style="font-size:20px">${prevNMonte?eur(mediaPrevMonte):'—'}</div><div class="sub">${prevNMonte?(prevNMonte+' mes'+(prevNMonte>1?'i':'e')+' precedenti'):'nessun mese ancora'}</div></div>
-      <div class="kpi ${deltaClassMonte}"><div class="lbl">vs media</div><div class="val" style="font-size:20px">${prevNMonte&&deltaPercMonte!==null?deltaTxtMonte:'—'}</div><div class="sub">${meseScorsoMonte?('mese scorso '+eur(meseScorsoMonte.uscite)):'primo periodo di utilizzo'}</div></div>
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:baseline;margin:4px 0 8px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600">🗓️ Andamento mensile</div>
+      <div style="font-size:12px;color:var(--muted)">${prevNMonte?('media mesi prec. <b>'+eur(mediaPrevMonte)+'</b>'+(deltaPercMonte!==null?(' · <span style="color:'+(deltaPercMonte>0?'var(--red)':'var(--green)')+'">'+(deltaPercMonte>=0?'+':'')+Math.round(deltaPercMonte)+'%</span>'):'')):''}</div>
     </div>
-    ${spesaMonteBars.some(b=>b.value>0)?svgBars(spesaMonteBars,{color:'var(--s6)',h:180}):'<div class="empty">Nessun utilizzo dal monte registrato finora. Quando registri una spesa dal monte bonus, qui vedrai l\'andamento mese per mese e il confronto.</div>'}
+    ${spesaMonteBars.some(b=>b.value>0)?svgBars(spesaMonteBars,{color:'var(--s6)',h:180}):'<div class="empty">Nessun utilizzo dal monte registrato finora. Registra una spesa dal monte per vedere l\'andamento.</div>'}
     <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:baseline;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:600;color:var(--txt)">📅 Analisi settimanale</div>
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:baseline;margin-bottom:8px">
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600">📅 Andamento settimanale</div>
         <div style="font-size:12px;color:var(--muted)">questa settimana <b style="color:var(--violet)">${eur(mbHome.curWkTot)}</b>${mbHome.prevWkKeys.length?(' · media '+eur(mbHome.mediaWk)+(mbDeltaWk!==null?(' · <span style="color:'+(mbDeltaWk>0?'var(--red)':'var(--green)')+'">'+(mbDeltaWk>=0?'+':'')+Math.round(mbDeltaWk)+'%</span>'):'')):''}</div>
       </div>
       ${mbHomeWkBars.some(b=>b.value>0)?svgBars(mbHomeWkBars,{color:'var(--s6)',h:150}):'<div style="font-size:12px;color:var(--muted)">Nessun utilizzo settimanale ancora registrato.</div>'}
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:8px">🧾 Ultimi movimenti</div>
+      ${recentFuori.length?`<div class="desk-only"><table class="rtable"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${recentFuori.map(r=>`<div class="recent-item"><div class="ri-main"><div class="ri-voce">${esc(r.note||'—')}</div><div class="ri-date">${fmtDate(r.data)}</div></div><div class="ri-amt">${eur(r.importo)}</div><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')" title="Elimina">🗑</button></div>`).join('')}</div>`:'<div style="font-size:12px;color:var(--muted)">Nessuna spesa dai bonus registrata finora.</div>'}
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin:30px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">📊 Panoramica ${w.anno}</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
