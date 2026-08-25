@@ -122,6 +122,15 @@ table.rtable td.sm-title{display:none}
 .tag.imp{background:rgba(74,158,255,.15);color:var(--accent)}
 .pos{color:var(--green)}.neg{color:var(--red)}
 .empty{text-align:center;color:var(--muted);padding:30px;font-size:13px}
+.mob-only{display:none}
+.recent-list{margin-top:14px}
+.recent-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-bottom:5px}
+.recent-item:last-child{margin-bottom:0}
+.recent-item .ri-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.recent-item .ri-voce{font-size:14px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent-item .ri-date{font-size:11px;color:var(--muted)}
+.recent-item .ri-amt{font-size:15px;font-weight:700;color:var(--violet);font-variant-numeric:tabular-nums;white-space:nowrap}
+.recent-item .mini-btn{flex-shrink:0;margin:0}
 .mini-btn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:7px;padding:5px 9px;font-size:12px;margin-left:4px}
 .mini-btn:hover{color:var(--txt);border-color:var(--accent)}
 .mini-btn.del:hover{color:var(--red);border-color:var(--red)}
@@ -193,6 +202,8 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   html,body{max-width:100%}
   .topbar{display:flex}
   .drawer-backdrop{display:block}
+  .desk-only{display:none}
+  .mob-only{display:block}
   .shell{flex-direction:column}
   .sidebar{position:fixed;top:0;left:0;bottom:0;right:auto;width:min(82%,300px);height:100%;flex-direction:column;padding:18px 14px calc(18px + env(safe-area-inset-bottom));border-right:1px solid var(--line);border-top:none;z-index:60;overflow-y:auto;background:var(--panel);transform:translateX(-100%);transition:transform .25s ease}
   .sidebar.open{transform:none}
@@ -610,6 +621,9 @@ function renderDashboard(el){
   const deltaTxtMonte=(deltaPercMonte===null)?(curSpesaMonte>0?'—':'—'):((deltaPercMonte>=0?'+':'')+Math.round(deltaPercMonte)+'%');
   const deltaClassMonte=(deltaPercMonte===null)?'':(deltaPercMonte>0?'red':(deltaPercMonte<0?'green':''));
   const spesaMonteBars=spesaMonteMesi.map(f=>({label:f.label.slice(0,3),value:f.uscite,color:f.corrente?'var(--s6)':'var(--smut)'}));
+  const mbHome=monteSpeseStats();
+  const mbHomeWkBars=mbHome.wkKeys.slice(-8).map(k=>({label:weekRange(mbHome.wkMap[k].sample).split('–')[0].trim(),value:mbHome.wkMap[k].tot,color:k===mbHome.curWk?'var(--s6)':'var(--smut)'}));
+  const mbDeltaWk=mbHome.mediaWk>0?((mbHome.curWkTot-mbHome.mediaWk)/mbHome.mediaWk*100):null;
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
   <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
@@ -626,7 +640,7 @@ function renderDashboard(el){
       <div class="kpi"><div class="lbl">Questo mese</div><div class="val" style="font-size:20px">${eur(fuoriCorrD)}</div></div>
     </div>
     ${moDataD.length>=2?svgArea(moDataD,{color:'var(--s6)',h:190}):moDataD.length?svgBars(moDataD,{color:'var(--s6)',h:190}):'<div class="empty">Nessuna spesa dai bonus ancora registrata.</div>'}
-    ${recentFuori.length?`<table class="rtable" style="margin-top:16px"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')">🗑</button></td></tr>`).join('')}</tbody></table>`:'<div style="font-size:12px;color:var(--muted);margin-top:12px">Nessuna spesa dai bonus registrata finora.</div>'}
+    ${recentFuori.length?`<div class="desk-only"><table class="rtable" style="margin-top:16px"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${recentFuori.map(r=>`<div class="recent-item"><div class="ri-main"><div class="ri-voce">${esc(r.note||'—')}</div><div class="ri-date">${fmtDate(r.data)}</div></div><div class="ri-amt">${eur(r.importo)}</div><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')" title="Elimina">🗑</button></div>`).join('')}</div>`:'<div style="font-size:12px;color:var(--muted);margin-top:12px">Nessuna spesa dai bonus registrata finora.</div>'}
   </div>
   <div class="card"><div class="card-head"><h3>💸 Spesa dal monte bonus — ${monthLabel(cm)}</h3></div>
     <div class="desc">Quanto stai spendendo dal monte bonus ogni mese, con il confronto rispetto ai mesi precedenti dello stesso periodo.</div>
@@ -636,6 +650,13 @@ function renderDashboard(el){
       <div class="kpi ${deltaClassMonte}"><div class="lbl">vs media</div><div class="val" style="font-size:20px">${prevNMonte&&deltaPercMonte!==null?deltaTxtMonte:'—'}</div><div class="sub">${meseScorsoMonte?('mese scorso '+eur(meseScorsoMonte.uscite)):'primo periodo di utilizzo'}</div></div>
     </div>
     ${spesaMonteBars.some(b=>b.value>0)?svgBars(spesaMonteBars,{color:'var(--s6)',h:180}):'<div class="empty">Nessun utilizzo dal monte registrato finora. Quando registri una spesa dal monte bonus, qui vedrai l\'andamento mese per mese e il confronto.</div>'}
+    <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:baseline;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600;color:var(--txt)">📅 Analisi settimanale</div>
+        <div style="font-size:12px;color:var(--muted)">questa settimana <b style="color:var(--violet)">${eur(mbHome.curWkTot)}</b>${mbHome.prevWkKeys.length?(' · media '+eur(mbHome.mediaWk)+(mbDeltaWk!==null?(' · <span style="color:'+(mbDeltaWk>0?'var(--red)':'var(--green)')+'">'+(mbDeltaWk>=0?'+':'')+Math.round(mbDeltaWk)+'%</span>'):'')):''}</div>
+      </div>
+      ${mbHomeWkBars.some(b=>b.value>0)?svgBars(mbHomeWkBars,{color:'var(--s6)',h:150}):'<div style="font-size:12px;color:var(--muted)">Nessun utilizzo settimanale ancora registrato.</div>'}
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin:30px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">📊 Panoramica ${w.anno}</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
   <div class="kpi-grid">
@@ -1169,6 +1190,24 @@ function svgDonut(frac,color,centerText,subText){
     ${subText?`<text x="${cx}" y="${cy+15}" text-anchor="middle" font-size="10" fill="var(--axis)">${subText}</text>`:''}
   </svg>`;
 }
+function monteSpeseStats(){
+  const prel=prelieviAnno().filter(p=>!isMonthlyPot(p.pot));
+  const tot=prel.reduce((s,p)=>s+p.importo,0);
+  const n=prel.length;
+  const wkMap={};prel.forEach(p=>{const k=weekKey(p.data);if(!wkMap[k])wkMap[k]={tot:0,sample:p.data,n:0};wkMap[k].tot+=p.importo;wkMap[k].n++;});
+  const wkKeys=Object.keys(wkMap).sort();
+  const curWk=weekKey(todayISO());
+  const curWkTot=wkMap[curWk]?wkMap[curWk].tot:0;
+  const prevWkKeys=wkKeys.filter(k=>k<curWk);
+  const mediaWk=prevWkKeys.length?prevWkKeys.reduce((s,k)=>s+wkMap[k].tot,0)/prevWkKeys.length:0;
+  const moMap={};prel.forEach(p=>{const k=(p.data||'').slice(0,7);if(k)moMap[k]=(moMap[k]||0)+p.importo;});
+  const moKeys=Object.keys(moMap).sort();
+  const top=prel.slice().sort((a,b)=>b.importo-a.importo).slice(0,5);
+  const avgUso=n?tot/n:0;
+  const maxUso=n?Math.max(...prel.map(p=>p.importo)):0;
+  const avgWkAll=wkKeys.length?tot/wkKeys.length:0;
+  return {prel,tot,n,avgUso,maxUso,wkMap,wkKeys,curWk,curWkTot,prevWkKeys,mediaWk,avgWkAll,moMap,moKeys,top};
+}
 function renderStat(el){
   const w=W();const t=totali();const riservato=Object.values(ordinarioPerMese()).reduce((s,v)=>s+v,0);
   const pots=bonusPots();
@@ -1194,11 +1233,33 @@ function renderStat(el){
   const wkTot={};speseAnno().forEach(s=>{const k=weekKey(s.data);wkTot[k]=(wkTot[k]||0)+s.importo;});const wkKeys=Object.keys(wkTot);
   if(wkKeys.length>=1){const over=wkKeys.filter(k=>wkTot[k]>w.budgetSettimanale).length;const avgWk=wkKeys.reduce((s,k)=>s+wkTot[k],0)/wkKeys.length;
     insights.push(`Budget settimanale: ${over} settiman${over===1?'a':'e'} su ${wkKeys.length} sopra i ${eur(w.budgetSettimanale)}; spesa media <b>${eur(avgWk)}</b>/settimana.`);}
+  const mbStat=monteSpeseStats();
+  const mbWkBars=mbStat.wkKeys.slice(-10).map(k=>({label:weekRange(mbStat.wkMap[k].sample).split('–')[0].trim(),value:mbStat.wkMap[k].tot,color:k===mbStat.curWk?'var(--s6)':'var(--smut)'}));
+  const mbMoBars=mbStat.moKeys.map(k=>({label:MESI[+k.slice(5,7)-1].slice(0,3),value:mbStat.moMap[k],color:'var(--s6)'}));
+  if(mbStat.n>=1){
+    insights.push(`Dal <b>monte bonus</b> hai speso in tutto <b>${eur(mbStat.tot)}</b> in ${mbStat.n} utilizz${mbStat.n===1?'o':'i'} (media ${eur(mbStat.avgUso)} l'uno).`);
+    if(mbStat.wkKeys.length>=1)insights.push(`Ritmo dal monte: circa <b>${eur(mbStat.avgWkAll)}/settimana</b>${mbStat.prevWkKeys.length?(' — questa settimana '+eur(mbStat.curWkTot)):''}.`);
+  }
   if(!insights.length)insights.push('Registra qualche spesa e prelievo dai bonus: appena ci sarà uno storico, qui compariranno analisi e ragionamenti automatici sui tuoi numeri.');
   el.innerHTML=`
   ${pageHead('Statistiche','Grafici su fatturato, bonus e spese')}
   <div class="card"><h3>🔎 Analisi automatica</h3><div class="desc">Ragionamenti sui tuoi numeri, aggiornati man mano che cresce lo storico</div>
     <ul style="margin:6px 0 0;padding-left:18px;line-height:1.9;font-size:14px">${insights.map(i=>`<li>${i}</li>`).join('')}</ul></div>
+  <div class="card"><h3>💸 Spese dal monte bonus — dettaglio</h3><div class="desc">Analisi degli utilizzi del monte bonus (esclusi i bonus mensili): totali, andamento settimanale e mensile</div>
+    ${mbStat.n?`
+    <div class="kpi-grid" style="margin:6px 0 16px">
+      <div class="kpi violet"><div class="lbl">Totale ${w.anno}</div><div class="val" style="font-size:20px">${eur(mbStat.tot)}</div><div class="sub">${mbStat.n} utilizz${mbStat.n===1?'o':'i'}</div></div>
+      <div class="kpi"><div class="lbl">Spesa media</div><div class="val" style="font-size:20px">${eur(mbStat.avgUso)}</div><div class="sub">per utilizzo</div></div>
+      <div class="kpi"><div class="lbl">Media settimanale</div><div class="val" style="font-size:20px">${eur(mbStat.avgWkAll)}</div><div class="sub">${mbStat.wkKeys.length} settiman${mbStat.wkKeys.length===1?'a':'e'}</div></div>
+      <div class="kpi"><div class="lbl">Spesa massima</div><div class="val" style="font-size:20px">${eur(mbStat.maxUso)}</div><div class="sub">singolo utilizzo</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:6px 0 8px">📅 Andamento settimanale</div>
+    ${mbWkBars.some(b=>b.value>0)?svgBars(mbWkBars,{color:'var(--s6)',h:180}):'<div style="font-size:12px;color:var(--muted)">Nessun dato settimanale.</div>'}
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:20px 0 8px">🗓️ Andamento mensile</div>
+    ${mbMoBars.length?svgBars(mbMoBars,{color:'var(--s6)',h:180}):'<div style="font-size:12px;color:var(--muted)">Nessun dato mensile.</div>'}
+    <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:20px 0 8px">🔝 Utilizzi più grandi</div>
+    <table class="rtable"><thead><tr><th>Voce</th><th>Data</th><th class="num">Importo</th></tr></thead><tbody>${mbStat.top.map(p=>`<tr><td class="sm-title">${fmtDate(p.data)} · ${esc(p.note||'—')}</td><td class="sm-hide" data-label="Voce" style="text-align:left">${esc(p.note||'—')}</td><td class="sm-hide" data-label="Data">${fmtDate(p.data)}</td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(p.importo)}</td></tr>`).join('')}</tbody></table>
+    `:'<div class="empty">Nessun utilizzo dal monte bonus registrato finora.</div>'}</div>
   <div class="card"><h3>📅 Spese oltre i ${eur(fab)} — storico mensile</h3><div class="desc">Quanto hai speso dai bonus ogni mese, fuori dai ${eur(fab)} fissi</div>
     ${fuoriKeys.length?`<table class="rtable"><thead><tr><th>Mese</th><th class="num">Speso dai bonus</th></tr></thead><tbody>${fuoriKeys.map(k=>`<tr><td data-label="Mese"><b>${monthLabel(k)}</b></td><td class="num" data-label="Speso dai bonus" style="color:var(--violet)">${eur(fuoriMap[k])}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nessuna spesa dai bonus registrata.</div>'}</div>
   <div class="card"><h3>💰 Ripartizione del fatturato ${w.anno}</h3><div class="desc">Come si dividono i ${eur(t.compensi)} di compensi · rivalsa ${eur(t.integrativo)} gestita a parte</div>
