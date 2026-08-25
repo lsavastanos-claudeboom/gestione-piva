@@ -660,7 +660,7 @@ function renderDashboard(el){
     </div>
     <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:14px">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:8px">🧾 Ultimi movimenti</div>
-      ${recentFuori.length?`<div class="desk-only"><table class="rtable"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${recentFuori.map(r=>`<div class="recent-item"><div class="ri-main"><div class="ri-voce">${esc(r.note||'—')}</div><div class="ri-date">${fmtDate(r.data)}</div></div><div class="ri-amt">${eur(r.importo)}</div><button class="mini-btn del" onclick="delPrelievoBonus('${r.id}')" title="Elimina">🗑</button></div>`).join('')}</div>`:'<div style="font-size:12px;color:var(--muted)">Nessuna spesa dai bonus registrata finora.</div>'}
+      ${recentFuori.length?`<div class="desk-only"><table class="rtable"><thead><tr><th>Data</th><th>Voce</th><th class="num">Importo</th><th></th></tr></thead><tbody>${recentFuori.map(r=>`<tr onclick="openPrelievoBonus(null,null,'${r.id}')" style="cursor:pointer"><td data-label="Data">${fmtDate(r.data)}</td><td data-label="Voce" style="text-align:left">${esc(r.note||'—')} <span class="tag ina">${potLabel(r.pot)}</span></td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(r.importo)}</td><td class="num" style="width:22px;color:var(--muted)">›</td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${recentFuori.map(r=>`<div class="recent-item" onclick="openPrelievoBonus(null,null,'${r.id}')" style="cursor:pointer"><div class="ri-main"><div class="ri-voce">${esc(r.note||'—')}</div><div class="ri-date">${fmtDate(r.data)}</div></div><div class="ri-amt">${eur(r.importo)}</div><span style="color:var(--muted);font-size:17px;margin-left:2px">›</span></div>`).join('')}</div>`:'<div style="font-size:12px;color:var(--muted)">Nessuna spesa dai bonus registrata finora.</div>'}
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;margin:30px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">📊 Panoramica ${w.anno}</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
@@ -941,7 +941,7 @@ function weeklyRegistroHTML(limitWeeks){
   return weeks.map(wk=>{const items=byWeek[wk];const tot=items.reduce((s,i)=>s+i.importo,0);const perc=budget?Math.min(100,tot/budget*100):0;const sample=items[0].data;
     return `<div style="margin-bottom:22px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">Settimana ${weekRange(sample)}</b><span style="font-size:13px;color:${tot>budget?'var(--red)':'var(--green)'}">${eur(tot)} / ${eur(budget)}</span></div>
       <div class="prog ${perc>=100?'over':perc>=80?'warn':''}" style="margin-bottom:10px"><span style="width:${perc}%"></span></div>
-      <table><tbody>${items.map(s=>`<tr><td style="width:90px">${fmtDate(s.data)}</td><td>${esc(s.categoria||'—')}</td><td style="color:var(--muted)">${esc(s.descrizione||'')}</td><td class="num">${eur(s.importo)}</td><td style="width:40px"><button class="mini-btn del" onclick="delSpesa('${s.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div>`;}).join('');
+      <table><tbody>${items.map(s=>`<tr onclick="openSpesa('${s.id}')" style="cursor:pointer"><td style="width:90px">${fmtDate(s.data)}</td><td>${esc(s.categoria||'—')}</td><td style="color:var(--muted)">${esc(s.descrizione||'')}</td><td class="num">${eur(s.importo)}</td><td class="num" style="width:22px;color:var(--muted)">›</td></tr>`).join('')}</tbody></table></div>`;}).join('');
 }
 function renderSpese(el){
   const w=W();const budget=w.budgetSettimanale;
@@ -951,18 +951,22 @@ function renderSpese(el){
     ${weeklyRegistroHTML()}
   </div>`;
 }
-function openSpesa(){document.getElementById('modal').innerHTML=`
-  <div class="modal-head"><h3>Nuova spesa</h3><button class="close-x" onclick="closeModal()">×</button></div>
-  <div class="modal-body"><div class="form-grid">
-    <div class="fld"><label>Data</label><input id="s_data" type="date" value="${todayISO()}"></div>
-    <div class="fld"><label>Categoria</label><input id="s_cat" placeholder="es. Spesa, Auto, Casa" list="catlist"><datalist id="catlist"><option>Spesa</option><option>Casa</option><option>Auto</option><option>Bollette</option><option>Svago</option><option>Salute</option><option>Altro</option></datalist></div>
-    <div class="fld"><label>Importo (€)</label><input id="s_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
-    <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="Dettaglio (facoltativo)"></div>
+function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId):null;document.getElementById('modal').innerHTML=`
+  <div class="modal-head"><h3>${ex?'Modifica spesa':'Nuova spesa'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
+  <div class="modal-body"><input type="hidden" id="s_edit" value="${ex?esc(editId):''}"><div class="form-grid">
+    <div class="fld"><label>Data</label><input id="s_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
+    <div class="fld"><label>Categoria</label><input id="s_cat" placeholder="es. Spesa, Auto, Casa" list="catlist" value="${ex?esc(ex.categoria||''):''}"><datalist id="catlist"><option>Spesa</option><option>Casa</option><option>Auto</option><option>Bollette</option><option>Svago</option><option>Salute</option><option>Altro</option></datalist></div>
+    <div class="fld"><label>Importo (€)</label><input id="s_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
+    <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="Dettaglio (facoltativo)" value="${ex?esc(ex.descrizione||''):''}"></div>
   </div></div>
-  <div class="modal-foot"><button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button><button class="btn-sm" onclick="saveSpesa()">Salva</button></div>`;
+  <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delSpesa('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="saveSpesa()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');}
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
-  W().spese.push({id:uid(),data:document.getElementById('s_data').value||todayISO(),categoria:document.getElementById('s_cat').value.trim(),descrizione:document.getElementById('s_desc').value.trim(),importo:imp});save();closeModal();render();toast('Spesa registrata');}
+  const editEl=document.getElementById('s_edit');const editId=editEl?editEl.value:'';const w=W();
+  const data=document.getElementById('s_data').value||todayISO(),categoria=document.getElementById('s_cat').value.trim(),descrizione=document.getElementById('s_desc').value.trim();
+  if(editId){const s=(w.spese||[]).find(x=>x.id===editId);if(s){s.data=data;s.categoria=categoria;s.descrizione=descrizione;s.importo=imp;}}
+  else{w.spese.push({id:uid(),data,categoria,descrizione,importo:imp});}
+  save();closeModal();render();toast(editId?'Spesa aggiornata':'Spesa registrata');}
 function delSpesa(id){const w=W();const i=w.spese.findIndex(s=>s.id===id);if(i<0)return;const it=w.spese[i];w.spese.splice(i,1);save();render();showUndo('Spesa eliminata',()=>{W().spese.splice(Math.min(i,W().spese.length),0,it);save();render();toast('Spesa ripristinata');});}
 function openQuickAdd(){
   document.getElementById('modal').innerHTML=`
@@ -1058,7 +1062,7 @@ function renderBonusUtilizzi(){
   <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:2px 0 8px">📊 Andamento ${trendLabel}</div>
   ${bars.some(b=>b.value>0)?svgBars(bars,{color:'var(--s6)',h:180}):'<div class="empty">Nessun utilizzo per i filtri selezionati.</div>'}
   <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:18px 0 8px">🧾 Elenco utilizzi</div>
-  ${prel.length?`<div class="desk-only"><table class="rtable"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th class="num">Importo</th><th></th></tr></thead><tbody>${prel.map(x=>`<tr><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Voce" style="text-align:left">${esc(x.note||'—')}${x.mese?(' <span style="font-size:11px;color:var(--muted)">· '+monthLabel(x.mese)+'</span>'):''}</td><td data-label="Tipo">${tipoTag(x)}</td><td class="num" data-label="Importo" style="color:var(--violet)">−${eur(x.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${x.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${prel.map(x=>`<div class="recent-item"><div class="ri-main"><div class="ri-voce">${esc(x.note||'—')}</div><div class="ri-date">${fmtDate(x.data)} · ${tipoTxt(x)}${x.mese?(' · '+monthLabel(x.mese)):''}</div></div><div class="ri-amt">−${eur(x.importo)}</div><button class="mini-btn del" onclick="delPrelievoBonus('${x.id}')" title="Elimina">🗑</button></div>`).join('')}</div>`:'<div class="empty">Nessun utilizzo registrato per questo filtro.</div>'}`;
+  ${prel.length?`<div class="desk-only"><table class="rtable"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th class="num">Importo</th><th></th></tr></thead><tbody>${prel.map(x=>`<tr onclick="openPrelievoBonus(null,null,'${x.id}')" style="cursor:pointer"><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Voce" style="text-align:left">${esc(x.note||'—')}${x.mese?(' <span style="font-size:11px;color:var(--muted)">· '+monthLabel(x.mese)+'</span>'):''}</td><td data-label="Tipo">${tipoTag(x)}</td><td class="num" data-label="Importo" style="color:var(--violet)">−${eur(x.importo)}</td><td class="num" style="width:22px;color:var(--muted)">›</td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${prel.map(x=>`<div class="recent-item" onclick="openPrelievoBonus(null,null,'${x.id}')" style="cursor:pointer"><div class="ri-main"><div class="ri-voce">${esc(x.note||'—')}</div><div class="ri-date">${fmtDate(x.data)} · ${tipoTxt(x)}${x.mese?(' · '+monthLabel(x.mese)):''}</div></div><div class="ri-amt">−${eur(x.importo)}</div><span style="color:var(--muted);font-size:17px;margin-left:2px">›</span></div>`).join('')}</div>`:'<div class="empty">Nessun utilizzo registrato per questo filtro.</div>'}`;
 }
 function setBonusUtilTipo(t){bonusUtilTipo=t;document.querySelectorAll('[data-butip]').forEach(x=>x.classList.toggle('fchip-on',x.dataset.butip===t));const b=document.getElementById('bonusUtilizziBody');if(b)b.innerHTML=renderBonusUtilizzi();}
 function setBonusUtilGran(g){bonusUtilGran=g;document.querySelectorAll('[data-bugran]').forEach(x=>x.classList.toggle('fchip-on',x.dataset.bugran===g));const b=document.getElementById('bonusUtilizziBody');if(b)b.innerHTML=renderBonusUtilizzi();}
@@ -1079,34 +1083,39 @@ function spendBonusInner(){
 }
 function setBonusFreeze(v){const w=W();const potFat=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;w.bonusFreeze=Math.min(Math.max(0,+v||0),Math.max(0,potFat));save();const fv=document.getElementById('freezeVal');if(fv)fv.textContent=eur(w.bonusFreeze);const fd=document.getElementById('freezeDisp');if(fd)fd.textContent=eur(Math.max(0,potFat-w.bonusFreeze));const sb=document.getElementById('spendBody');if(sb)sb.innerHTML=spendBonusInner();}
 function setBonusRiserva(){W().bonusRiserva=+document.getElementById('bonusRis').value||0;save();render();toast('Riserva aggiornata');}
-function openPrelievoBonus(prePot,preMese){
-  const w=W();const mesiOpts=mesiBonusList();const dm=preMese||curMonthKey();
+function openPrelievoBonus(prePot,preMese,editId){
+  const w=W();const ex=editId?(w.prelieviBonus||[]).find(p=>p.id===editId):null;
+  if(ex){prePot=ex.pot;preMese=ex.mese;}
+  let mesiOpts=mesiBonusList();const dm=preMese||curMonthKey();if(dm&&!mesiOpts.includes(dm))mesiOpts=[dm,...mesiOpts];
   const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus',saldo:0};
   const potOpts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];
-  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);const disp=(mb.importo||0)-speso;if(disp>0||mb.id===prePot)potOpts.push({id:mb.id,nome:mb.nome,saldo:disp});});
+  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm&&pr.id!==editId).reduce((s,pr)=>s+pr.importo,0);const disp=(mb.importo||0)-speso;if(disp>0||mb.id===prePot)potOpts.push({id:mb.id,nome:mb.nome,saldo:disp});});
   document.getElementById('modal').innerHTML=`
-    <div class="modal-head"><h3>Spesa / prelievo dal bonus</h3><button class="close-x" onclick="closeModal()">×</button></div>
-    <div class="modal-body"><div class="form-grid">
-      <div class="fld"><label>Data</label><input id="pb_data" type="date" value="${todayISO()}"></div>
+    <div class="modal-head"><h3>${ex?'Modifica utilizzo':'Spesa / prelievo dal bonus'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><input type="hidden" id="pb_edit" value="${ex?esc(editId):''}"><div class="form-grid">
+      <div class="fld"><label>Data</label><input id="pb_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
       <div class="fld"><label>Salvadanaio</label><select id="pb_pot">${potOpts.map(p=>`<option value="${p.id}" ${p.id===prePot?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('')}</select></div>
       <div class="fld"><label>Mese di riferimento</label><select id="pb_mese" onchange="refreshPbPot()">${mesiOpts.map(k=>`<option value="${k}" ${k===dm?'selected':''}>${monthLabel(k)}</option>`).join('')}</select></div>
-      <div class="fld"><label>Importo (€)</label><input id="pb_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00"></div>
-      <div class="fld" style="grid-column:1/-1"><label>Note</label><input id="pb_note" placeholder="es. viaggio, acquisto…"></div>
+      <div class="fld"><label>Importo (€)</label><input id="pb_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
+      <div class="fld" style="grid-column:1/-1"><label>Note</label><input id="pb_note" placeholder="es. viaggio, acquisto…" value="${ex?esc(ex.note||''):''}"></div>
     </div></div>
-    <div class="modal-foot"><button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button><button class="btn-sm" onclick="savePrelievoBonus()">Salva</button></div>`;
+    <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delPrelievoBonus('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="savePrelievoBonus()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');
 }
 function refreshPbPot(){const w=W();const sel=document.getElementById('pb_pot');const meseEl=document.getElementById('pb_mese');if(!sel||!meseEl)return;const dm=meseEl.value;const cur=sel.value;const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus',saldo:0};const opts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];(w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);const disp=(mb.importo||0)-speso;if(disp>0||mb.id===cur)opts.push({id:mb.id,nome:mb.nome,saldo:disp});});sel.innerHTML=opts.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('');}
 function savePrelievoBonus(){
   const imp=+document.getElementById('pb_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const mEl=document.getElementById('pb_mese');const pot=document.getElementById('pb_pot').value;const mese=mEl?mEl.value:'';
+  const editEl=document.getElementById('pb_edit');const editId=editEl?editEl.value:'';
   const w=W();let disp;
-  if(pot==='fatture'){disp=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;}
-  else{const mb=(w.speseMensili||[]).find(x=>x.id===pot);const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese).reduce((s,pr)=>s+pr.importo,0);disp=mb?(mb.importo||0)-speso:0;}
-  w.prelieviBonus.push({id:uid(),data:document.getElementById('pb_data').value||todayISO(),pot,mese,importo:imp,note:document.getElementById('pb_note').value.trim()});
+  if(pot==='fatture'){disp=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;if(editId){const old=(w.prelieviBonus||[]).find(p=>p.id===editId);if(old&&old.pot==='fatture')disp+=old.importo;}}
+  else{const mb=(w.speseMensili||[]).find(x=>x.id===pot);const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese&&pr.id!==editId).reduce((s,pr)=>s+pr.importo,0);disp=mb?(mb.importo||0)-speso:0;}
+  const data=document.getElementById('pb_data').value||todayISO();const note=document.getElementById('pb_note').value.trim();
+  if(editId){const p=(w.prelieviBonus||[]).find(x=>x.id===editId);if(p){p.data=data;p.pot=pot;p.mese=mese;p.importo=imp;p.note=note;}}
+  else{w.prelieviBonus.push({id:uid(),data,pot,mese,importo:imp,note});}
   save();closeModal();render();
-  if(imp>disp+0.001)toast('Registrata · attenzione: superi il disponibile ('+eur(disp)+') del salvadanaio',true);
-  else toast('Spesa registrata');
+  if(imp>disp+0.001)toast((editId?'Modificato':'Registrata')+' · attenzione: superi il disponibile ('+eur(disp)+') del salvadanaio',true);
+  else toast(editId?'Utilizzo aggiornato':'Spesa registrata');
 }
 function delPrelievoBonus(id){const w=W();const i=w.prelieviBonus.findIndex(p=>p.id===id);if(i<0)return;const it=w.prelieviBonus[i];w.prelieviBonus.splice(i,1);save();render();showUndo('Spesa bonus eliminata',()=>{W().prelieviBonus.splice(Math.min(i,W().prelieviBonus.length),0,it);save();render();toast('Ripristinata');});}
 
