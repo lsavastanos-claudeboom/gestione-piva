@@ -126,6 +126,11 @@ table.rtable td.sm-title{display:none}
 .recent-list{margin-top:14px}
 .recent-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-bottom:5px}
 .recent-item:last-child{margin-bottom:0}
+.fchip-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.fchip-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:2px}
+.fchip{background:var(--panel2);border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600}
+.fchip:hover{color:var(--txt)}
+.fchip.fchip-on{background:rgba(74,158,255,.15);border-color:var(--accent);color:var(--accent)}
 .recent-item .ri-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
 .recent-item .ri-voce{font-size:14px;font-weight:600;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .recent-item .ri-date{font-size:11px;color:var(--muted)}
@@ -476,6 +481,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementB
 /* ============ NAV ============ */
 let view='dashboard';
 let dashMeseOffset=0;
+let bonusUtilTipo='tutti';
+let bonusUtilGran='mese';
 function initApp(){
   const u=state.utenti[currentUser];const w=W();
   if(!w.bonusMensiliInizio){w.bonusMensiliInizio=curMonthKey();save();}
@@ -1025,13 +1032,36 @@ function renderBonus(el){
       <td class="num" data-label="Monte disponibile"><b style="color:${s.monte<0?'var(--red)':'var(--violet)'}">${eur(s.monte)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
-  <div class="card"><div class="card-head"><h3>💸 Prelievi / utilizzi bonus</h3><button class="btn-sm" onclick="openPrelievoBonus()">+ Registra spesa</button></div>
-    ${prel.length===0?'<div class="empty">Nessun prelievo dai bonus. Quando usi un bonus (acquisto, extra…), registralo qui per scalarlo dal salvadanaio.</div>':`
-    <table class="rtable"><thead><tr><th>Data</th><th>Salvadanaio</th><th>Note</th><th class="num">Importo</th><th></th></tr></thead><tbody>
-    ${prel.map(x=>`<tr><td class="sm-title">${fmtDate(x.data)} · ${esc(x.note||'Spesa bonus')}</td><td class="sm-hide" data-label="Data">${fmtDate(x.data)}</td><td data-label="Salvadanaio">${esc(potName(x.pot))}${x.mese?(' · '+monthLabel(x.mese)):''}</td><td class="sm-hide" data-label="Note" style="color:var(--muted)">${esc(x.note||'—')}</td><td class="num" data-label="Importo" style="color:var(--red)">−${eur(x.importo)}</td><td data-label="" class="sm-actions"><button class="mini-btn del" onclick="delPrelievoBonus('${x.id}')" title="Elimina">🗑</button></td></tr>`).join('')}
-    </tbody></table>`}
+  <div class="card"><div class="card-head"><h3>💸 Utilizzi dei bonus</h3><button class="btn-sm" onclick="openPrelievoBonus()">+ Registra utilizzo</button></div>
+    <div class="desc">Analizza gli utilizzi dei bonus per tipo e periodo · sotto l'elenco filtrato</div>
+    <div class="fchip-row"><span class="fchip-lbl">Tipo</span><button class="fchip${bonusUtilTipo==='tutti'?' fchip-on':''}" data-butip="tutti" onclick="setBonusUtilTipo('tutti')">Tutti</button><button class="fchip${bonusUtilTipo==='monte'?' fchip-on':''}" data-butip="monte" onclick="setBonusUtilTipo('monte')">🎁 Monte bonus</button><button class="fchip${bonusUtilTipo==='mensili'?' fchip-on':''}" data-butip="mensili" onclick="setBonusUtilTipo('mensili')">📅 Bonus mensili</button></div>
+    <div class="fchip-row"><span class="fchip-lbl">Vista</span><button class="fchip${bonusUtilGran==='settimana'?' fchip-on':''}" data-bugran="settimana" onclick="setBonusUtilGran('settimana')">Settimana</button><button class="fchip${bonusUtilGran==='mese'?' fchip-on':''}" data-bugran="mese" onclick="setBonusUtilGran('mese')">Mese</button><button class="fchip${bonusUtilGran==='anno'?' fchip-on':''}" data-bugran="anno" onclick="setBonusUtilGran('anno')">Anno</button></div>
+    <div id="bonusUtilizziBody">${renderBonusUtilizzi()}</div>
   </div>`;
 }
+function bonusUtilPrel(tipo){let p=prelieviAnno();if(tipo==='monte')p=p.filter(x=>!isMonthlyPot(x.pot));else if(tipo==='mensili')p=p.filter(x=>isMonthlyPot(x.pot));return p;}
+function renderBonusUtilizzi(){
+  const w=W();const tipo=bonusUtilTipo,gran=bonusUtilGran;
+  const prel=bonusUtilPrel(tipo).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const tot=prel.reduce((s,p)=>s+p.importo,0);const n=prel.length;const avg=n?tot/n:0;const mx=n?Math.max(...prel.map(p=>p.importo)):0;
+  let bars=[],trendLabel='';
+  if(gran==='settimana'){const m={};prel.forEach(p=>{const k=weekKey(p.data);if(!m[k])m[k]={t:0,s:p.data};m[k].t+=p.importo;});const keys=Object.keys(m).sort();const cw=weekKey(todayISO());bars=keys.slice(-12).map(k=>({label:weekRange(m[k].s).split('–')[0].trim(),value:m[k].t,color:k===cw?'var(--s6)':'var(--smut)'}));trendLabel='per settimana';}
+  else if(gran==='anno'){bars=[{label:String(w.anno),value:tot,color:'var(--s6)'}];trendLabel='per anno';}
+  else{const m={};prel.forEach(p=>{const k=(p.data||'').slice(0,7);if(k)m[k]=(m[k]||0)+p.importo;});const cm=curMonthKey();bars=Object.keys(m).sort().map(k=>({label:MESI[+k.slice(5,7)-1].slice(0,3),value:m[k],color:k===cm?'var(--s6)':'var(--smut)'}));trendLabel='per mese';}
+  const tipoTxt=p=>isMonthlyPot(p.pot)?'Bonus mensile':'Monte bonus';
+  const tipoTag=p=>isMonthlyPot(p.pot)?'<span class="tag" style="background:rgba(217,89,38,.16);color:var(--s2)">Bonus mensile</span>':'<span class="tag ina">Monte bonus</span>';
+  return `<div class="kpi-grid" style="margin:2px 0 14px">
+    <div class="kpi violet"><div class="lbl">Totale</div><div class="val" style="font-size:20px">${eur(tot)}</div><div class="sub">${n} utilizz${n===1?'o':'i'}</div></div>
+    <div class="kpi"><div class="lbl">Media / utilizzo</div><div class="val" style="font-size:20px">${eur(avg)}</div></div>
+    <div class="kpi"><div class="lbl">Utilizzo max</div><div class="val" style="font-size:20px">${eur(mx)}</div></div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:2px 0 8px">📊 Andamento ${trendLabel}</div>
+  ${bars.some(b=>b.value>0)?svgBars(bars,{color:'var(--s6)',h:180}):'<div class="empty">Nessun utilizzo per i filtri selezionati.</div>'}
+  <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:18px 0 8px">🧾 Elenco utilizzi</div>
+  ${prel.length?`<div class="desk-only"><table class="rtable"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th class="num">Importo</th><th></th></tr></thead><tbody>${prel.map(x=>`<tr><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Voce" style="text-align:left">${esc(x.note||'—')}${x.mese?(' <span style="font-size:11px;color:var(--muted)">· '+monthLabel(x.mese)+'</span>'):''}</td><td data-label="Tipo">${tipoTag(x)}</td><td class="num" data-label="Importo" style="color:var(--violet)">−${eur(x.importo)}</td><td data-label="" style="width:40px"><button class="mini-btn del" onclick="delPrelievoBonus('${x.id}')">🗑</button></td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${prel.map(x=>`<div class="recent-item"><div class="ri-main"><div class="ri-voce">${esc(x.note||'—')}</div><div class="ri-date">${fmtDate(x.data)} · ${tipoTxt(x)}${x.mese?(' · '+monthLabel(x.mese)):''}</div></div><div class="ri-amt">−${eur(x.importo)}</div><button class="mini-btn del" onclick="delPrelievoBonus('${x.id}')" title="Elimina">🗑</button></div>`).join('')}</div>`:'<div class="empty">Nessun utilizzo registrato per questo filtro.</div>'}`;
+}
+function setBonusUtilTipo(t){bonusUtilTipo=t;document.querySelectorAll('[data-butip]').forEach(x=>x.classList.toggle('fchip-on',x.dataset.butip===t));const b=document.getElementById('bonusUtilizziBody');if(b)b.innerHTML=renderBonusUtilizzi();}
+function setBonusUtilGran(g){bonusUtilGran=g;document.querySelectorAll('[data-bugran]').forEach(x=>x.classList.toggle('fchip-on',x.dataset.bugran===g));const b=document.getElementById('bonusUtilizziBody');if(b)b.innerHTML=renderBonusUtilizzi();}
 function setBonusProgressivo(){const w=W();w.bonusProgressivo=+document.getElementById('bonusIni').value||0;if(!w.bonusIniData)w.bonusIniData=todayISO();save();render();toast('Riserva aggiornata');}
 function spendBonusInner(){
   const w=W();const potFat=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;
