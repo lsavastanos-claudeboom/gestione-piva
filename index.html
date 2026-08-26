@@ -767,6 +767,12 @@ function renderDashboard(el){
   const q=bonusQuick();
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
+  <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
+  <div class="card" data-cat="income"><div class="card-head"><h3>📊 Stato del mese — <span id="statoMeseLabel">${monthLabel(smSel.sel)}${dashMeseOffset===0?'':' (in anticipo)'}</span></h3>
+    ${smSel.maxOff>0?`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--muted)">scorri i mesi</span><input type="range" id="statoMeseSlider" aria-label="Scorri i mesi successivi" min="0" max="${smSel.maxOff}" step="1" value="${dashMeseOffset}" oninput="setStatoMese(this.value)" style="width:130px;accent-color:var(--violet)"></div>`:''}</div>
+    <div class="desc">Spesa settimanale, bonus mensili tipo 1/2 e monte bonus accumulato · usa lo slider per vedere i mesi successivi in anticipo</div>
+    <div id="statoMeseBody">${statoMeseBodyHTML(smSel.sel)}</div>
+  </div>
   <div class="card" data-cat="bonus"><div class="card-head"><h3>💸 Spese dai bonus — colpo d'occhio</h3><button class="btn-sm desk-only" onclick="goTo('bonus')">Dettaglio</button></div>
     <div class="desc">Utilizzi dei bonus (monte + mensili): settimana e mese a confronto, per capire subito l'andamento</div>
     <div class="kpi-grid" style="margin:6px 0 12px">
@@ -775,12 +781,6 @@ function renderDashboard(el){
       <div class="kpi"><div class="lbl">Ripartizione del mese</div><div class="val" style="font-size:15px;line-height:1.4">🎁 monte ${eur(q.monteCur)}<br>📅 mensili ${eur(q.mensiliCur)}</div></div>
     </div>
     ${q.wkBars.some(b=>b.value>0)?`<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:6px">📈 Ultime 8 settimane</div>${svgBars(q.wkBars,{color:'var(--s6)',h:120})}`:`<div class="empty" style="padding:14px">Nessun utilizzo dei bonus registrato di recente. Registra una spesa dai bonus per vedere l'andamento.</div>`}
-  </div>
-  <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
-  <div class="card" data-cat="income"><div class="card-head"><h3>📊 Stato del mese — <span id="statoMeseLabel">${monthLabel(smSel.sel)}${dashMeseOffset===0?'':' (in anticipo)'}</span></h3>
-    ${smSel.maxOff>0?`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--muted)">scorri i mesi</span><input type="range" id="statoMeseSlider" aria-label="Scorri i mesi successivi" min="0" max="${smSel.maxOff}" step="1" value="${dashMeseOffset}" oninput="setStatoMese(this.value)" style="width:130px;accent-color:var(--violet)"></div>`:''}</div>
-    <div class="desc">Spesa settimanale, bonus mensili tipo 1/2 e monte bonus accumulato · usa lo slider per vedere i mesi successivi in anticipo</div>
-    <div id="statoMeseBody">${statoMeseBodyHTML(smSel.sel)}</div>
   </div>
   <div class="card" data-cat="bonus"><div class="card-head"><h3>💸 Spese dal monte bonus</h3><button class="btn-sm desk-only" onclick="openQuickAdd()">+ Registra spesa</button></div>
     <div class="desc">Quanto usi dal monte bonus (fuori dai ${eur(fab)} fissi) · andamento mensile e settimanale, con gli ultimi movimenti</div>
