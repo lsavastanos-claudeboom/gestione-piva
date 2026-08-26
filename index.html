@@ -957,15 +957,16 @@ function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId
   <div class="modal-head"><h3>${ex?'Modifica spesa':'Nuova spesa'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
   <div class="modal-body"><input type="hidden" id="s_edit" value="${ex?esc(editId):''}"><div class="form-grid">
     <div class="fld"><label>Data</label><input id="s_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
-    <div class="fld"><label>Categoria</label><input id="s_cat" placeholder="es. Spesa, Auto, Casa" list="catlist" value="${ex?esc(ex.categoria||''):''}"><datalist id="catlist"><option>Spesa</option><option>Casa</option><option>Auto</option><option>Bollette</option><option>Svago</option><option>Salute</option><option>Altro</option></datalist></div>
     <div class="fld"><label>Importo (€)</label><input id="s_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
-    <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="Dettaglio (facoltativo)" value="${ex?esc(ex.descrizione||''):''}"></div>
+    <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="es. benzina, pranzo, cancelleria…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('s_desc','s_cat')"></div>
+    <div class="fld" style="grid-column:1/-1"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto dalla descrizione</span></label><input id="s_cat" placeholder="—" list="catlist_all" value="${ex?esc(ex.categoria||''):''}" ${ex&&ex.categoria?'data-manual="1"':''} oninput="catManual(this)"></div>
   </div></div>
+  <datalist id="catlist_all">${CATEGORIE.map(c=>`<option>${c.label}</option>`).join('')}</datalist>
   <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delSpesa('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="saveSpesa()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');}
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const editEl=document.getElementById('s_edit');const editId=editEl?editEl.value:'';const w=W();
-  const data=document.getElementById('s_data').value||todayISO(),categoria=document.getElementById('s_cat').value.trim(),descrizione=document.getElementById('s_desc').value.trim();
+  const data=document.getElementById('s_data').value||todayISO(),descrizione=document.getElementById('s_desc').value.trim();const categoria=document.getElementById('s_cat').value.trim()||categorizza(descrizione);
   if(editId){const s=(w.spese||[]).find(x=>x.id===editId);if(s){s.data=data;s.categoria=categoria;s.descrizione=descrizione;s.importo=imp;}}
   else{w.spese.push({id:uid(),data,categoria,descrizione,importo:imp});}
   save();closeModal();render();toast(editId?'Spesa aggiornata':'Spesa registrata');}
@@ -1045,6 +1046,23 @@ function renderBonus(el){
     <div id="bonusUtilizziBody">${renderBonusUtilizzi()}</div>
   </div>`;
 }
+const CATEGORIE=[
+  {label:'Trasporti',emoji:'🚗',kw:['benzin','carburant','diesel','gasolio','autostrad','pedagg','telepass','taxi','treno','biglietto','parchegg','tagliand','gomme','pneumatic','revision','bollo auto','assicuraz','ricarica tesla','ricarica auto','ricarica elettr','monopattin','uber','trasfert','rimborso km','noleggio auto','leasing']},
+  {label:'Ufficio e lavoro',emoji:'💻',kw:['software','licenz','abbonament','hosting','dominio','cad','autocad','notebook','computer','pc ','stampant','toner','cartucc','cancelleri','carta','ufficio','coworking','pec','firma digitale','marca da bollo','timbro','plotter','attrezzatur','strument','materiale','gadget']},
+  {label:'Formazione',emoji:'📚',kw:['libr','corso','formazion','aggiornament','master','webinar','certificaz','iscrizione albo','quota albo','ordine','seminari','convegno']},
+  {label:'Ristorazione',emoji:'🍽️',kw:['ristorant','pizz','cena','pranzo','bar ','caff','colazion','aperitiv','trattori','mensa','osteri','sushi']},
+  {label:'Alimentari',emoji:'🛒',kw:['spesa','supermercat','coop','esselunga','conad','lidl','carrefour','pane','latte','frutta','verdura','macelleri','aliment']},
+  {label:'Casa e utenze',emoji:'🏠',kw:['affitt','condomini','luce','elettric','bollett','acqua','tari','riscaldament','mutuo',' box','garage','locazion','metano','enel']},
+  {label:'Salute',emoji:'🩺',kw:['medic','farmaci','dentist','visita','esame','analisi','occhial','fisioterap','ottico']},
+  {label:'Tecnologia',emoji:'📱',kw:['telefon','cellular','smartphone',' sim','cuffie','cavo','adattator','hard disk','monitor','mouse','tastiera','router']},
+  {label:'Abbigliamento',emoji:'👕',kw:['vestit','abbigliament','scarpe','giacca','camicia','pantalon']},
+  {label:'Regali ed extra',emoji:'🎁',kw:['regal','fiori','cena cliente','omaggio']}
+];
+function categorizza(text){const t=' '+(text||'').toLowerCase()+' ';for(const c of CATEGORIE){if(c.kw.some(k=>t.includes(k)))return c.label;}return 'Altro';}
+function catEmoji(label){const c=CATEGORIE.find(x=>x.label===label);return c?c.emoji:'📦';}
+function autoCatFill(srcId,catId){const cat=document.getElementById(catId),src=document.getElementById(srcId);if(cat&&src&&cat.dataset.manual!=='1')cat.value=categorizza(src.value);}
+function catManual(el){if(el)el.dataset.manual='1';}
+function prelCat(p){return p.categoria||categorizza(p.note||'');}
 function bonusUtilPrel(tipo){let p=prelieviAnno();if(tipo==='monte')p=p.filter(x=>!isMonthlyPot(x.pot));else if(tipo==='mensili')p=p.filter(x=>isMonthlyPot(x.pot));return p;}
 function renderBonusUtilizzi(){
   const w=W();const tipo=bonusUtilTipo,mese=bonusUtilMese;
@@ -1054,6 +1072,8 @@ function renderBonusUtilizzi(){
   const periodo=mese?monthLabel(mese):('anno '+w.anno);
   const m={};prelTipo.forEach(p=>{const k=(p.data||'').slice(0,7);if(k)m[k]=(m[k]||0)+p.importo;});
   const bars=Object.keys(m).sort().map(k=>({label:MESI[+k.slice(5,7)-1].slice(0,3),value:m[k],color:mese?(k===mese?'var(--s6)':'var(--smut)'):'var(--s6)'}));
+  const catMap={};prel.forEach(p=>{const c=prelCat(p);catMap[c]=(catMap[c]||0)+p.importo;});
+  const catData=Object.entries(catMap).map(([label,value])=>({label:catEmoji(label)+' '+label,value})).sort((a,b)=>b.value-a.value);
   const tipoTxt=p=>isMonthlyPot(p.pot)?'Bonus mensile':'Monte bonus';
   const tipoTag=p=>isMonthlyPot(p.pot)?'<span class="tag" style="background:rgba(217,89,38,.16);color:var(--s2)">Bonus mensile</span>':'<span class="tag ina">Monte bonus</span>';
   return `<div class="kpi-grid" style="margin:2px 0 14px">
@@ -1063,8 +1083,10 @@ function renderBonusUtilizzi(){
   </div>
   <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:2px 0 8px">📊 Andamento mensile${mese?' · '+monthLabel(mese)+' in evidenza':''}</div>
   ${bars.some(b=>b.value>0)?svgBars(bars,{color:'var(--s6)',h:180}):'<div class="empty">Nessun utilizzo per i filtri selezionati.</div>'}
+  <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:18px 0 8px">🏷️ Per categoria · ${periodo}</div>
+  ${catData.some(d=>d.value>0)?svgHBars(catData,{color:'var(--s6)'}):'<div class="empty">Nessun dato per categoria.</div>'}
   <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:18px 0 8px">🧾 Elenco utilizzi · ${periodo}</div>
-  ${prel.length?`<div class="desk-only"><table class="rtable"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th class="num">Importo</th><th></th></tr></thead><tbody>${prel.map(x=>`<tr onclick="openPrelievoBonus(null,null,'${x.id}')" style="cursor:pointer"><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Voce" style="text-align:left">${esc(x.note||'—')}${x.mese?(' <span style="font-size:11px;color:var(--muted)">· '+monthLabel(x.mese)+'</span>'):''}</td><td data-label="Tipo">${tipoTag(x)}</td><td class="num" data-label="Importo" style="color:var(--violet)">−${eur(x.importo)}</td><td class="num" style="width:22px;color:var(--muted)">›</td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${prel.map(x=>`<div class="recent-item" onclick="openPrelievoBonus(null,null,'${x.id}')" style="cursor:pointer"><div class="ri-main"><div class="ri-voce">${esc(x.note||'—')}</div><div class="ri-date">${fmtDate(x.data)} · ${tipoTxt(x)}${x.mese?(' · '+monthLabel(x.mese)):''}</div></div><div class="ri-amt">−${eur(x.importo)}</div><span style="color:var(--muted);font-size:17px;margin-left:2px">›</span></div>`).join('')}</div>`:'<div class="empty">Nessun utilizzo registrato per questo filtro.</div>'}`;
+  ${prel.length?`<div class="desk-only"><table class="rtable"><thead><tr><th>Data</th><th>Voce</th><th>Tipo</th><th class="num">Importo</th><th></th></tr></thead><tbody>${prel.map(x=>`<tr onclick="openPrelievoBonus(null,null,'${x.id}')" style="cursor:pointer"><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Voce" style="text-align:left">${esc(x.note||'—')} <span style="font-size:11px;color:var(--muted)">${catEmoji(prelCat(x))} ${esc(prelCat(x))}</span>${x.mese?(' <span style="font-size:11px;color:var(--muted)">· '+monthLabel(x.mese)+'</span>'):''}</td><td data-label="Tipo">${tipoTag(x)}</td><td class="num" data-label="Importo" style="color:var(--violet)">−${eur(x.importo)}</td><td class="num" style="width:22px;color:var(--muted)">›</td></tr>`).join('')}</tbody></table></div><div class="mob-only recent-list">${prel.map(x=>`<div class="recent-item" onclick="openPrelievoBonus(null,null,'${x.id}')" style="cursor:pointer"><div class="ri-main"><div class="ri-voce">${esc(x.note||'—')}</div><div class="ri-date">${catEmoji(prelCat(x))} ${esc(prelCat(x))} · ${fmtDate(x.data)} · ${tipoTxt(x)}${x.mese?(' · '+monthLabel(x.mese)):''}</div></div><div class="ri-amt">−${eur(x.importo)}</div><span style="color:var(--muted);font-size:17px;margin-left:2px">›</span></div>`).join('')}</div>`:'<div class="empty">Nessun utilizzo registrato per questo filtro.</div>'}`;
 }
 function setBonusUtilTipo(t){bonusUtilTipo=t;document.querySelectorAll('[data-butip]').forEach(x=>x.classList.toggle('fchip-on',x.dataset.butip===t));const b=document.getElementById('bonusUtilizziBody');if(b)b.innerHTML=renderBonusUtilizzi();}
 function setBonusUtilMese(mk){bonusUtilMese=mk||'';const b=document.getElementById('bonusUtilizziBody');if(b)b.innerHTML=renderBonusUtilizzi();}
@@ -1099,8 +1121,10 @@ function openPrelievoBonus(prePot,preMese,editId){
       <div class="fld"><label>Salvadanaio</label><select id="pb_pot">${potOpts.map(p=>`<option value="${p.id}" ${p.id===prePot?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('')}</select></div>
       <div class="fld"><label>Mese di riferimento</label><select id="pb_mese" onchange="refreshPbPot()">${mesiOpts.map(k=>`<option value="${k}" ${k===dm?'selected':''}>${monthLabel(k)}</option>`).join('')}</select></div>
       <div class="fld"><label>Importo (€)</label><input id="pb_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
-      <div class="fld" style="grid-column:1/-1"><label>Note</label><input id="pb_note" placeholder="es. viaggio, acquisto…" value="${ex?esc(ex.note||''):''}"></div>
+      <div class="fld"><label>Note</label><input id="pb_note" placeholder="es. benzina, pranzo cliente…" value="${ex?esc(ex.note||''):''}" oninput="autoCatFill('pb_note','pb_cat')"></div>
+      <div class="fld"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto</span></label><input id="pb_cat" list="catlist_all" placeholder="—" value="${ex?esc(prelCat(ex)):''}" ${ex&&ex.categoria?'data-manual="1"':''} oninput="catManual(this)"></div>
     </div></div>
+    <datalist id="catlist_all">${CATEGORIE.map(c=>`<option>${c.label}</option>`).join('')}</datalist>
     <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delPrelievoBonus('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="savePrelievoBonus()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');
 }
@@ -1113,8 +1137,9 @@ function savePrelievoBonus(){
   if(pot==='fatture'){disp=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;if(editId){const old=(w.prelieviBonus||[]).find(p=>p.id===editId);if(old&&old.pot==='fatture')disp+=old.importo;}}
   else{const mb=(w.speseMensili||[]).find(x=>x.id===pot);const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese&&pr.id!==editId).reduce((s,pr)=>s+pr.importo,0);disp=mb?(mb.importo||0)-speso:0;}
   const data=document.getElementById('pb_data').value||todayISO();const note=document.getElementById('pb_note').value.trim();
-  if(editId){const p=(w.prelieviBonus||[]).find(x=>x.id===editId);if(p){p.data=data;p.pot=pot;p.mese=mese;p.importo=imp;p.note=note;}}
-  else{w.prelieviBonus.push({id:uid(),data,pot,mese,importo:imp,note});}
+  const catEl=document.getElementById('pb_cat');const categoria=(catEl&&catEl.value.trim())?catEl.value.trim():categorizza(note);
+  if(editId){const p=(w.prelieviBonus||[]).find(x=>x.id===editId);if(p){p.data=data;p.pot=pot;p.mese=mese;p.importo=imp;p.note=note;p.categoria=categoria;}}
+  else{w.prelieviBonus.push({id:uid(),data,pot,mese,importo:imp,note,categoria});}
   save();closeModal();render();
   if(imp>disp+0.001)toast((editId?'Modificato':'Registrata')+' · attenzione: superi il disponibile ('+eur(disp)+') del salvadanaio',true);
   else toast(editId?'Utilizzo aggiornato':'Spesa registrata');
