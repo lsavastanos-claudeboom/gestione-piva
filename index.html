@@ -53,7 +53,13 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 html,body{max-width:100%}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 button{font-family:inherit;cursor:pointer}
-button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:6px}
+.skip-link{position:fixed;left:12px;top:-60px;z-index:400;background:var(--accent);color:#fff;padding:10px 16px;border-radius:0 0 10px 10px;font-weight:700;text-decoration:none;transition:top .15s}
+.skip-link:focus{top:0;color:#fff}
+.fs-ctrl{display:inline-flex;gap:6px;align-items:center}
+.fs-ctrl button{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:6px 12px;line-height:1}
+.fs-ctrl button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
 input,select{font-family:inherit;font-size:14px}
 a{color:var(--accent)}
 #login,#cloudlogin{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 600px at 50% -10%,#1c2836,var(--bg));z-index:100}
@@ -303,17 +309,19 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   </div>
 </div>
 <div id="app">
-<div class="topbar" id="topbar"><button class="hamb" onclick="toggleDrawer()" aria-label="Menu">&#9776;</button><div class="topbar-title" id="topbarTitle">Dashboard</div><button class="theme-btn" onclick="toggleTheme()" aria-label="Tema" style="margin-left:auto">🌙</button></div>
+<a href="#view" class="skip-link">Vai al contenuto</a>
+<div class="topbar" id="topbar"><button class="hamb" onclick="toggleDrawer()" aria-label="Apri menu di navigazione">&#9776;</button><div class="topbar-title" id="topbarTitle">Dashboard</div><button class="theme-btn" onclick="toggleTheme()" aria-label="Tema" style="margin-left:auto">🌙</button></div>
 <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
 <div class="shell">
   <aside class="sidebar">
     <div class="brand"><div class="logo"><svg viewBox="0 0 512 512"><rect width="512" height="512" fill="#2f7ff0"/><circle cx="150" cy="372" r="40" fill="#fff" opacity=".5"/><circle cx="300" cy="248" r="150" fill="#fff"/><text x="300" y="312" font-size="205" font-weight="800" text-anchor="middle" fill="#2f7ff0" font-family="Arial,Helvetica,sans-serif">€</text></svg></div><div><b>HopHop Budget</b><span id="brandYear">2026</span></div></div>
-    <nav class="nav" id="nav">
+    <nav class="nav" id="nav" aria-label="Navigazione principale">
       <button data-v="dashboard" class="active"><span class="ic">◧</span><span>Dashboard</span></button>
       <button data-v="fatture"><span class="ic">🧾</span><span>Fatture</span></button>
       <button data-v="conto"><span class="ic">🏦</span><span>Conto imposte</span></button>
       <button data-v="ordinario"><span class="ic">📆</span><span>Ordinario</span></button>
       <button data-v="spese"><span class="ic">🛒</span><span>Spese</span></button>
+      <button data-v="deducibili"><span class="ic">🧮</span><span>Deducibilità</span></button>
       <button data-v="bonus"><span class="ic">🎁</span><span>Bonus</span></button>
       <button data-v="proiezione"><span class="ic">📈</span><span>Proiezione</span></button>
       <button data-v="stat"><span class="ic">📊</span><span>Statistiche</span></button>
@@ -326,10 +334,10 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
       <button class="logout" onclick="logout()">Cambia utenza</button>
     </div>
   </aside>
-  <main class="main" id="view"></main>
+  <main class="main" id="view" tabindex="-1"></main>
 </div>
-<button id="fab" onclick="openQuickAdd()" title="Nuovo inserimento">+</button>
-<nav class="bottomnav" id="bottomnav">
+<button id="fab" onclick="openQuickAdd()" title="Nuovo inserimento" aria-label="Nuovo inserimento">+</button>
+<nav class="bottomnav" id="bottomnav" aria-label="Navigazione rapida">
   <button data-v="dashboard" class="active" onclick="goTo('dashboard')"><span class="bic">◧</span><span class="blbl">Home</span></button>
   <button data-v="spese" onclick="goTo('spese')"><span class="bic">🛒</span><span class="blbl">Spese</span></button>
   <button data-v="bonus" onclick="goTo('bonus')"><span class="bic">🎁</span><span class="blbl">Bonus</span></button>
@@ -338,7 +346,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 </nav>
 </div>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 /* ============ DATA LAYER (localStorage — sostituibile con Supabase) ============ */
@@ -349,6 +357,21 @@ function newWorkspace(){return{
   tettoForfettario:85000, fabbisognoMensile:2500, riportoOrdinario:0,
   forfettario:{coefficiente:78, impostePerc:30, aliquotaSostitutiva:15},
   ordinario:{aliquotaImposte:27, contributi:14.5, iva:22},
+  fiscoOrd:{
+    scaglioni:[{fino:28000,perc:23},{fino:50000,perc:35},{fino:null,perc:43}],
+    addRegionale:1.73, addComunale:0.80,
+    inaSoggettivo:14.5, inaIntegrativo:4, inaMaternita:0, iva:22
+  },
+  deduzioni:[
+    {key:'generale',label:'Generale / servizi / materiali',perc:100},
+    {key:'beni',label:'Beni strumentali',perc:100},
+    {key:'formazione',label:'Formazione e aggiornamento',perc:100},
+    {key:'vitto',label:'Vitto e alloggio (ristoranti/alberghi)',perc:75},
+    {key:'auto',label:'Auto e carburante',perc:20},
+    {key:'telefonia',label:'Telefonia',perc:80},
+    {key:'rappresentanza',label:'Spese di rappresentanza',perc:100},
+    {key:'nondeducibile',label:'Non deducibile',perc:0}
+  ],
   contoImposte:{saldoIniziale:0, soloIncassate:false, previsti:[]},
   speseMensili:[
     {id:'m1',nome:'Affitto casa',importo:400,tipo:'spesa'},
@@ -399,9 +422,13 @@ function normalize(p){
     const nw=Object.assign(newWorkspace(),w,{
       forfettario:Object.assign(newWorkspace().forfettario,w.forfettario||{}),
       ordinario:Object.assign(newWorkspace().ordinario,w.ordinario||{}),
+      fiscoOrd:Object.assign(newWorkspace().fiscoOrd,w.fiscoOrd||{}),
       contoImposte:Object.assign(newWorkspace().contoImposte,w.contoImposte||{}),
       proiezione:Object.assign(newWorkspace().proiezione,w.proiezione||{})
     });
+    if(Array.isArray(w.fiscoOrd&&w.fiscoOrd.scaglioni))nw.fiscoOrd.scaglioni=w.fiscoOrd.scaglioni;
+    if(Array.isArray(w.deduzioni)&&w.deduzioni.length)nw.deduzioni=w.deduzioni;
+    nw.spese=(nw.spese||[]).map(migrateSpesa);
     nw.fatture=(nw.fatture||[]).map(migrateFattura);
     (nw.speseMensili||[]).forEach(x=>{if(x.nome==='Bonus mensile tipo 1')x.nome='Bonus mensile 300';if(x.nome==='Bonus mensile tipo 2')x.nome='Bonus mensile 250';});
     if(!('bonusIniData' in w))nw.bonusIniData=((+nw.bonusProgressivo||0)>0?todayISO():'');
@@ -422,6 +449,25 @@ function migrateFattura(f){
     acc:{imposte:acc.imposte||0,integrativo:acc.integrativo||f.rivalsa||0,soggettivo:acc.soggettivo||acc.contributi||0,iva:acc.iva||0,versareConto:versare,totale:versare},
     netto:(f.netto!=null)?f.netto:comp-(acc.imposte||0)});
 }
+/* Deducibilità: default % per tipologia di costo (art. 54 TUIR — modificabili in Impostazioni) */
+function dedDefault(tipo){return ({generale:100,beni:100,formazione:100,vitto:75,auto:20,telefonia:80,rappresentanza:100,nondeducibile:0})[tipo];}
+/* Suggerimento tipologia costo dalla categoria auto-rilevata della spesa */
+function tipoCostoDaCategoria(cat){cat=(cat||'').toLowerCase();
+  if(/trasport/.test(cat))return 'auto';
+  if(/tecnolog|telefon/.test(cat))return 'telefonia';
+  if(/ristor|viagg/.test(cat))return 'vitto';
+  if(/formazion/.test(cat))return 'formazione';
+  if(/ufficio|lavoro/.test(cat))return 'generale';
+  if(/regali|extra/.test(cat))return 'rappresentanza';
+  if(/salute|bellezza|aliment|abbigl|animal|svago|casa|utenze/.test(cat))return 'nondeducibile';
+  return 'generale';
+}
+function migrateSpesa(s){
+  if(s&&s.fatturata!=null&&s.tipoCosto!=null&&s.deduzionePerc!=null)return s;
+  const tipo=(s&&s.tipoCosto)||tipoCostoDaCategoria(s&&s.categoria);
+  const dd=dedDefault(tipo);const ded=(s&&s.deduzionePerc!=null)?s.deduzionePerc:(dd==null?100:dd);
+  return Object.assign({},s,{fatturata:!!(s&&s.fatturata),tipoCosto:tipo,deduzionePerc:ded});
+}
 function save(){state._ts=Date.now();localStorage.setItem(KEY,JSON.stringify(state));scheduleCloud();}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 let currentUser=null;
@@ -430,6 +476,9 @@ function W(){return state.workspaces[currentUser];}
 /* ============ HELPERS ============ */
 const EUR=new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'});
 const eur=n=>EUR.format(n||0);
+/* Numeri e percentuali in formato italiano (migliaia con punto, decimali con virgola) */
+function num(n,dec){dec=(dec==null?0:dec);return new Intl.NumberFormat('it-IT',{minimumFractionDigits:dec,maximumFractionDigits:dec}).format(+n||0);}
+function perc(n,dec){dec=(dec==null?1:dec);const v=(+n||0);const s=new Intl.NumberFormat('it-IT',{minimumFractionDigits:0,maximumFractionDigits:dec}).format(v);return s+'%';}
 const MESI=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 function monthLabel(k){const[y,m]=k.split('-');return MESI[+m-1]+' '+y;}
 function todayISO(){return new Date().toISOString().slice(0,10);}
@@ -467,6 +516,45 @@ function calcAccantonamenti(compenso,regime){
 function fattureAnno(){return W().fatture.filter(f=>(f.data||'').slice(0,4)==String(W().anno));}
 function fVersare(f){return (f.versareConto!=null)?f.versareConto:(f.acc&&f.acc.versareConto!=null?f.acc.versareConto:0);}
 
+/* ============ DEDUCIBILITÀ COSTI + MOTORE ORDINARIO (dal 2027) ============ */
+function isAnnoOrdinario(){const w=W();return w.regimeAttivo==='ordinario'||(+w.anno)>=2027;}
+function dedLabel(tipo){const w=W();const d=(w.deduzioni||[]).find(x=>x.key===tipo);return d?d.label:(tipo||'—');}
+function dedPercDefaultTipo(tipo){const w=W();const d=(w.deduzioni||[]).find(x=>x.key===tipo);return d?d.perc:(dedDefault(tipo)||0);}
+function deducibileSpesa(s){return (+s.importo||0)*((s.deduzionePerc!=null?s.deduzionePerc:dedPercDefaultTipo(s.tipoCosto))||0)/100;}
+function speseFatturate(){return speseAnno().filter(s=>s.fatturata);}
+function deducibiliPerTipo(){
+  const map={};speseFatturate().forEach(s=>{const t=s.tipoCosto||'generale';const m=map[t]||(map[t]={tipo:t,label:dedLabel(t),n:0,imponibile:0,deducibile:0});m.n++;m.imponibile+=(+s.importo||0);m.deducibile+=deducibileSpesa(s);});
+  return Object.values(map).sort((a,b)=>b.deducibile-a.deducibile);
+}
+/* IRPEF a scaglioni progressivi */
+function irpefLorda(reddito,scaglioni){reddito=Math.max(0,+reddito||0);let tax=0,prev=0;
+  for(const s of (scaglioni||[])){const cap=(s.fino==null)?Infinity:(+s.fino);const base=Math.min(reddito,cap)-prev;if(base>0)tax+=base*((+s.perc||0)/100);prev=cap;if(reddito<=cap)break;}
+  return tax;}
+function aliquotaMarginale(reddito,scaglioni){reddito=Math.max(0,+reddito||0);let prev=0,perc=0;
+  for(const s of (scaglioni||[])){perc=+s.perc||0;const cap=(s.fino==null)?Infinity:(+s.fino);if(reddito<=cap)break;prev=cap;}
+  return perc;}
+/* Stima annua regime ordinario: compensi fatturati − costi deducibili → IRPEF + addizionali + Inarcassa */
+function calcOrdinarioAnnuo(){
+  const w=W();const fo=w.fiscoOrd;
+  const compensi=fattureAnno().reduce((s,f)=>s+(+f.compenso||0),0);
+  const costiDeducibili=speseFatturate().reduce((s,x)=>s+deducibileSpesa(x),0);
+  const costiTotali=speseFatturate().reduce((s,x)=>s+(+x.importo||0),0);
+  const redditoProf=Math.max(0,compensi-costiDeducibili);
+  const inaSogg=redditoProf*(+fo.inaSoggettivo||0)/100;
+  const inaInteg=compensi*(+fo.inaIntegrativo||0)/100;
+  const inaMat=+fo.inaMaternita||0;
+  const imponibileIrpef=Math.max(0,redditoProf-inaSogg);
+  const irpef=irpefLorda(imponibileIrpef,fo.scaglioni);
+  const addizionali=imponibileIrpef*((+fo.addRegionale||0)+(+fo.addComunale||0))/100;
+  const totImposte=irpef+addizionali+inaSogg+inaMat;
+  const netto=redditoProf-irpef-addizionali-inaSogg-inaMat;
+  const aliqMedia=redditoProf?totImposte/redditoProf*100:0;
+  const aliqMarg=aliquotaMarginale(imponibileIrpef,fo.scaglioni)+(+fo.addRegionale||0)+(+fo.addComunale||0);
+  return {compensi,costiTotali,costiDeducibili,redditoProf,inaSogg,inaInteg,inaMat,imponibileIrpef,irpef,addizionali,totImposte,netto,aliqMedia,aliqMarg};
+}
+/* Risparmio fiscale stimato dei costi deducibili = deducibile × aliquota marginale (IRPEF+addizionali+soggettivo) */
+function risparmioDeducibile(){const o=calcOrdinarioAnnuo();const marg=(o.aliqMarg||0)+(+W().fiscoOrd.inaSoggettivo||0);return o.costiDeducibili*marg/100;}
+
 /* ============ AUTH ============ */
 let selectedUser=0;
 function renderLogin(){
@@ -493,16 +581,16 @@ function initApp(){
   document.getElementById('curAv').textContent=(u.nome||'U').charAt(0).toUpperCase();
   document.getElementById('curPiva').textContent=w.denominazione||(w.partitaIva?('P.IVA '+w.partitaIva):'P.IVA da configurare');
   document.getElementById('brandYear').textContent='Anno '+w.anno;
-  document.querySelectorAll('#nav button').forEach(b=>{b.classList.toggle('active',b.dataset.v===view);b.onclick=()=>goTo(b.dataset.v);});document.querySelectorAll('.bottomnav button').forEach(b=>b.classList.toggle('active',b.dataset.v===view));
+  document.querySelectorAll('#nav button').forEach(b=>{const on=b.dataset.v===view;b.classList.toggle('active',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');b.onclick=()=>goTo(b.dataset.v);});document.querySelectorAll('.bottomnav button').forEach(b=>b.classList.toggle('active',b.dataset.v===view));
   setTopTitle(document.querySelector('#nav button[data-v="'+view+'"]'));
   render();
 }
 function toggleDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.toggle('open');if(bd)bd.classList.toggle('open');}
 function closeDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.remove('open');if(bd)bd.classList.remove('open');}
 function setTopTitle(b){const t=document.getElementById('topbarTitle');if(t&&b){const sp=b.querySelector('span:not(.ic)');if(sp)t.textContent=sp.textContent;}}
-function render(){({dashboard:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:renderSpese,bonus:renderBonus,proiezione:renderProiezione,stat:renderStat,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
+function render(){({dashboard:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:renderSpese,bonus:renderBonus,proiezione:renderProiezione,stat:renderStat,deducibili:renderDeducibili,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
 function pageHead(title,sub){const w=W();return `<div class="page-head"><div><h2>${title}</h2><p>${sub}</p></div><span class="regime-pill">${esc(state.utenti[currentUser].nome)} · ${w.regimeAttivo} · ${w.anno}</span></div>`;}
-function goTo(v){view=v;document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));document.querySelectorAll('.bottomnav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));setTopTitle(document.querySelector('#nav button[data-v="'+v+'"]'));closeDrawer();render();}
+function goTo(v){view=v;document.querySelectorAll('#nav button').forEach(x=>{const on=x.dataset.v===v;x.classList.toggle('active',on);if(on)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current');});document.querySelectorAll('.bottomnav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));setTopTitle(document.querySelector('#nav button[data-v="'+v+'"]'));closeDrawer();render();}
 
 /* ============ AGGREGAZIONI ============ */
 function totali(){
@@ -755,13 +843,13 @@ function addAllocRow(mese,importo){const list=document.getElementById('allocList
 function recalcModal(){
   const compenso=+document.getElementById('f_compenso').value||0;const regime=document.getElementById('f_regime').value;
   const a=calcAccantonamenti(compenso,regime);const w=W();const box=document.getElementById('calcBox');
-  const ivaRowFattura=regime==='ordinario'?`<div class="calc-row"><span class="lbl">IVA (${w.ordinario.iva}%)</span><span>+ ${eur(a.iva)}</span></div>`:'';
-  const impLbl=regime==='forfettario'?`Imposte ${w.forfettario.impostePerc}% del reddito (sostitutiva ${w.forfettario.aliquotaSostitutiva}% + Inarcassa)`:`Imposte / IRPEF (${w.ordinario.aliquotaImposte}%)`;
-  const sogRow=regime==='ordinario'?`<div class="calc-row"><span class="lbl">Contributi (${w.ordinario.contributi}%)</span><span style="color:var(--amber)">${eur(a.soggettivo)}</span></div>`:'';
+  const ivaRowFattura=regime==='ordinario'?`<div class="calc-row"><span class="lbl">IVA (${perc(w.ordinario.iva)})</span><span>+ ${eur(a.iva)}</span></div>`:'';
+  const impLbl=regime==='forfettario'?`Imposte ${perc(w.forfettario.impostePerc)} del reddito (sostitutiva ${perc(w.forfettario.aliquotaSostitutiva)} + Inarcassa)`:`Imposte / IRPEF (${perc(w.ordinario.aliquotaImposte)})`;
+  const sogRow=regime==='ordinario'?`<div class="calc-row"><span class="lbl">Contributi (${perc(w.ordinario.contributi)})</span><span style="color:var(--amber)">${eur(a.soggettivo)}</span></div>`:'';
   const ivaConto=regime==='ordinario'?`<div class="calc-row"><span class="lbl">IVA da riversare</span><span style="color:var(--amber)">${eur(a.iva)}</span></div>`:'';
   box.innerHTML=`
    <div class="calc-row"><span class="lbl">Compenso</span><span>${eur(a.compenso)}</span></div>
-   <div class="calc-row"><span class="lbl">Rivalsa Inarcassa (${w.rivalsaPerc}%) · in fattura</span><span>+ ${eur(a.rivalsa)}</span></div>
+   <div class="calc-row"><span class="lbl">Rivalsa Inarcassa (${perc(w.rivalsaPerc)}) · in fattura</span><span>+ ${eur(a.rivalsa)}</span></div>
    ${ivaRowFattura}
    <div class="calc-row tot"><span>Totale fattura (paga il cliente)</span><span>${eur(a.totaleFattura)}</span></div>
    <div class="calc-row" style="margin-top:8px"><span class="lbl">${impLbl}</span><span style="color:var(--amber)">${eur(a.imposte)}</span></div>
@@ -953,22 +1041,87 @@ function renderSpese(el){
     ${weeklyRegistroHTML()}
   </div>`;
 }
+
+/* ============ DEDUCIBILITÀ / SPESE FATTURATE (regime ordinario dal 2027) ============ */
+function renderDeducibili(el){
+  const w=W();const COLS=['var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)','var(--s6)','var(--smut)','var(--baseline)'];
+  const fatt=speseFatturate().slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const perTipo=deducibiliPerTipo();
+  const totImponibile=fatt.reduce((s,x)=>s+(+x.importo||0),0);
+  const totDeducibile=fatt.reduce((s,x)=>s+deducibileSpesa(x),0);
+  const pctMedia=totImponibile?totDeducibile/totImponibile*100:0;
+  const o=calcOrdinarioAnnuo();const risparmio=risparmioDeducibile();
+  const ordAttivo=isAnnoOrdinario();
+  const tipoBadge=t=>`<span class="tag" style="background:rgba(74,158,255,.14);color:var(--accent)">${esc(dedLabel(t))}</span>`;
+  el.innerHTML=`
+  ${pageHead('Deducibilità costi','Spese fatturate e quanto puoi portare in deduzione nel regime ordinario')}
+  <div class="settings-note">${ordAttivo
+    ? `<b>Regime ordinario attivo (${w.anno}).</b> I costi fatturati qui sotto abbattono il reddito imponibile IRPEF. La stima è indicativa: verifica sempre con il commercialista.`
+    : `<b>Ora sei in forfettario (${w.anno}):</b> i costi non incidono sulle imposte. Questa sezione prepara il passaggio all'<b>ordinario dal 2027</b> — segna le spese come “fatturate” e assegna la tipologia, così arrivi pronto con lo storico. La simulazione sotto mostra l'effetto che avrebbero in ordinario.`}</div>
+  <div class="kpi-grid">
+    <div class="kpi accent"><div class="lbl">Spese fatturate</div><div class="val" style="font-size:22px">${eur(totImponibile)}</div><div class="sub">${num(fatt.length)} spese registrate</div></div>
+    <div class="kpi green"><div class="lbl">Totale deducibile</div><div class="val" style="font-size:22px">${eur(totDeducibile)}</div><div class="sub">${perc(pctMedia)} medio dell'imponibile</div></div>
+    <div class="kpi"><div class="lbl">Risparmio fiscale stimato</div><div class="val" style="font-size:22px;color:var(--green)">${eur(risparmio)}</div><div class="sub">≈ deducibile × aliquota marginale</div></div>
+    <div class="kpi"><div class="lbl">Aliquota marginale stimata</div><div class="val" style="font-size:22px">${perc(o.aliqMarg)}</div><div class="sub">IRPEF + addizionali + Inarcassa</div></div>
+  </div>
+  ${perTipo.length?`<div class="card"><h3>🏷️ Deducibile per tipologia di costo</h3>
+    <div class="desc">Per ogni tipologia: quanto hai speso (fatturato) e quanto ne porti in deduzione, con l'aliquota applicata.</div>
+    ${svgHBars(perTipo.map((r,i)=>({label:r.label.length>22?r.label.slice(0,21)+'…':r.label,value:r.deducibile,color:COLS[i%COLS.length]})),{fmt:eur})}
+    <table class="rtable" style="margin-top:8px"><thead><tr><th>Tipologia</th><th class="num">Spese</th><th class="num">Imponibile</th><th class="num">% ded.</th><th class="num">Deducibile</th></tr></thead><tbody>
+    ${perTipo.map(r=>`<tr><td data-label="Tipologia"><b>${esc(r.label)}</b></td><td class="num" data-label="Spese">${num(r.n)}</td><td class="num" data-label="Imponibile">${eur(r.imponibile)}</td><td class="num" data-label="% ded.">${perc(r.imponibile?r.deducibile/r.imponibile*100:0)}</td><td class="num" data-label="Deducibile" style="color:var(--green)"><b>${eur(r.deducibile)}</b></td></tr>`).join('')}
+    <tr><td data-label="Tipologia"><b>Totale</b></td><td class="num" data-label="Spese"><b>${num(fatt.length)}</b></td><td class="num" data-label="Imponibile"><b>${eur(totImponibile)}</b></td><td class="num" data-label="% ded."><b>${perc(pctMedia)}</b></td><td class="num" data-label="Deducibile" style="color:var(--green)"><b>${eur(totDeducibile)}</b></td></tr>
+    </tbody></table>
+  </div>`:`<div class="card"><h3>🧮 Nessuna spesa fatturata</h3><div class="desc">Apri una spesa (o creane una nuova) e attiva “Spesa fatturata” per iniziare a costruire il deducibile in vista dell'ordinario 2027.</div><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>`}
+  <div class="card"><h3>🧾 Simulazione regime ordinario ${ordAttivo?'':'(dal 2027)'}</h3>
+    <div class="desc">Stima su compensi fatturati e costi deducibili di quest'anno (${w.anno}). Metodo semplificato — non sostituisce il calcolo del commercialista.</div>
+    <table class="rtable"><tbody>
+      <tr><td data-label="Voce">Compensi fatturati (imponibile professionale)</td><td class="num" data-label="Importo">${eur(o.compensi)}</td></tr>
+      <tr><td data-label="Voce">− Costi deducibili</td><td class="num" data-label="Importo" style="color:var(--red)">− ${eur(o.costiDeducibili)}</td></tr>
+      <tr><td data-label="Voce"><b>= Reddito professionale netto</b></td><td class="num" data-label="Importo"><b>${eur(o.redditoProf)}</b></td></tr>
+      <tr><td data-label="Voce">− Inarcassa soggettivo (${perc(w.fiscoOrd.inaSoggettivo)})</td><td class="num" data-label="Importo" style="color:var(--red)">− ${eur(o.inaSogg)}</td></tr>
+      <tr><td data-label="Voce"><b>= Imponibile IRPEF</b></td><td class="num" data-label="Importo"><b>${eur(o.imponibileIrpef)}</b></td></tr>
+      <tr><td data-label="Voce">IRPEF (a scaglioni)</td><td class="num" data-label="Importo" style="color:var(--amber)">${eur(o.irpef)}</td></tr>
+      <tr><td data-label="Voce">Addizionali regionale + comunale</td><td class="num" data-label="Importo" style="color:var(--amber)">${eur(o.addizionali)}</td></tr>
+      <tr><td data-label="Voce">Inarcassa soggettivo${o.inaMat?' + maternità':''}</td><td class="num" data-label="Importo" style="color:var(--amber)">${eur(o.inaSogg+o.inaMat)}</td></tr>
+      <tr><td data-label="Voce"><b>Totale imposte + contributi</b></td><td class="num" data-label="Importo"><b style="color:var(--red)">${eur(o.totImposte)}</b></td></tr>
+      <tr><td data-label="Voce"><b>Netto in tasca stimato</b></td><td class="num" data-label="Importo"><b style="color:var(--green)">${eur(o.netto)}</b></td></tr>
+      <tr><td data-label="Voce">Aliquota media / marginale</td><td class="num" data-label="Importo">${perc(o.aliqMedia)} / ${perc(o.aliqMarg)}</td></tr>
+    </tbody></table>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Inarcassa integrativo (${perc(w.fiscoOrd.inaIntegrativo)} = ${eur(o.inaInteg)}) è addebitato in fattura al cliente: partita di giro, non incluso nelle imposte a tuo carico. Le aliquote sono modificabili in Impostazioni.</div>
+  </div>
+  <div class="card"><div class="card-head"><h3>📋 Elenco spese fatturate</h3><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>
+    ${fatt.length?`<table class="rtable"><thead><tr><th>Data</th><th>Descrizione</th><th>Tipologia</th><th class="num">Importo</th><th class="num">Deducibile</th></tr></thead><tbody>
+    ${fatt.map(s=>`<tr onclick="openSpesa('${s.id}')" style="cursor:pointer"><td data-label="Data">${fmtDate(s.data)}</td><td data-label="Descrizione"><b>${esc(s.descrizione||s.categoria||'—')}</b><br><span style="font-size:11px;color:var(--muted)">${esc(s.categoria||'')}</span></td><td data-label="Tipologia">${tipoBadge(s.tipoCosto)} <span style="font-size:11px;color:var(--muted)">${perc(s.deduzionePerc!=null?s.deduzionePerc:dedPercDefaultTipo(s.tipoCosto))}</span></td><td class="num" data-label="Importo">${eur(s.importo)}</td><td class="num" data-label="Deducibile" style="color:var(--green)">${eur(deducibileSpesa(s))}</td></tr>`).join('')}
+    </tbody></table>`:`<div class="empty">Nessuna spesa contrassegnata come fatturata.</div>`}
+  </div>`;
+}
 function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId):null;document.getElementById('modal').innerHTML=`
   <div class="modal-head"><h3>${ex?'Modifica spesa':'Nuova spesa'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
   <div class="modal-body"><input type="hidden" id="s_edit" value="${ex?esc(editId):''}"><div class="form-grid">
     <div class="fld"><label>Data</label><input id="s_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
     <div class="fld"><label>Importo (€)</label><input id="s_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
-    <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="es. benzina, pranzo, cancelleria…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('s_desc','s_cat')"></div>
-    <div class="fld" style="grid-column:1/-1"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto dalla descrizione</span></label><input id="s_cat" placeholder="—" list="catlist_all" value="${ex?esc(ex.categoria||''):''}" ${ex&&ex.categoria?'data-manual="1"':''} oninput="catManual(this)"></div>
+    <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="es. benzina, pranzo, cancelleria…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('s_desc','s_cat');autoTipoFill()"></div>
+    <div class="fld" style="grid-column:1/-1"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto dalla descrizione</span></label><input id="s_cat" placeholder="—" list="catlist_all" value="${ex?esc(ex.categoria||''):''}" ${ex&&ex.categoria?'data-manual="1"':''} oninput="catManual(this);autoTipoFill()"></div>
+    <div class="fld" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:600"><input type="checkbox" id="s_fatt" ${ex&&ex.fatturata?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)"> Spesa fatturata <span style="font-weight:400;color:var(--muted)">· deducibile in ordinario</span></label>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Nel forfettario i costi non abbattono le imposte: serve per il regime ordinario dal 2027.</div>
+    </div>
+    <div class="fld"><label>Tipologia di costo</label><select id="s_tipo" onchange="setDedFromTipo()" ${ex&&ex.tipoCosto?'data-manual="1"':''}>${(W().deduzioni||[]).map(d=>`<option value="${d.key}" ${((ex&&ex.tipoCosto)||'generale')===d.key?'selected':''}>${esc(d.label)} · ${perc(d.perc)}</option>`).join('')}</select></div>
+    <div class="fld"><label>% deducibile</label><input id="s_ded" type="number" step="1" min="0" max="100" inputmode="numeric" value="${ex?(ex.deduzionePerc!=null?ex.deduzionePerc:dedPercDefaultTipo(ex.tipoCosto||'generale')):dedPercDefaultTipo('generale')}" ${ex&&ex.deduzionePerc!=null?'data-manual="1"':''} oninput="this.dataset.manual='1'"></div>
   </div></div>
   <datalist id="catlist_all">${CATEGORIE.map(c=>`<option>${c.label}</option>`).join('')}</datalist>
   <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delSpesa('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="saveSpesa()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');}
+function setDedFromTipo(){const sel=document.getElementById('s_tipo'),ded=document.getElementById('s_ded');if(!sel)return;sel.dataset.manual='1';if(ded){ded.value=dedPercDefaultTipo(sel.value);ded.dataset.manual='';}}
+function autoTipoFill(){const cat=document.getElementById('s_cat'),sel=document.getElementById('s_tipo'),ded=document.getElementById('s_ded');if(!cat||!sel||sel.dataset.manual==='1')return;const t=tipoCostoDaCategoria(cat.value);sel.value=t;if(ded&&ded.dataset.manual!=='1')ded.value=dedPercDefaultTipo(t);}
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const editEl=document.getElementById('s_edit');const editId=editEl?editEl.value:'';const w=W();
   const data=document.getElementById('s_data').value||todayISO(),descrizione=document.getElementById('s_desc').value.trim();const categoria=document.getElementById('s_cat').value.trim()||categorizza(descrizione);
-  if(editId){const s=(w.spese||[]).find(x=>x.id===editId);if(s){s.data=data;s.categoria=categoria;s.descrizione=descrizione;s.importo=imp;}}
-  else{w.spese.push({id:uid(),data,categoria,descrizione,importo:imp});}
+  const fatturata=!!document.getElementById('s_fatt').checked;
+  const tipoCosto=document.getElementById('s_tipo').value||'generale';
+  const dedEl=document.getElementById('s_ded');let deduzionePerc=(dedEl&&dedEl.value!=='')?+dedEl.value:dedPercDefaultTipo(tipoCosto);deduzionePerc=Math.max(0,Math.min(100,+deduzionePerc||0));
+  if(editId){const s=(w.spese||[]).find(x=>x.id===editId);if(s){s.data=data;s.categoria=categoria;s.descrizione=descrizione;s.importo=imp;s.fatturata=fatturata;s.tipoCosto=tipoCosto;s.deduzionePerc=deduzionePerc;}}
+  else{w.spese.push({id:uid(),data,categoria,descrizione,importo:imp,fatturata,tipoCosto,deduzionePerc});}
   save();closeModal();render();toast(editId?'Spesa aggiornata':'Spesa registrata');}
 function delSpesa(id){const w=W();const i=w.spese.findIndex(s=>s.id===id);if(i<0)return;const it=w.spese[i];w.spese.splice(i,1);save();render();showUndo('Spesa eliminata',()=>{W().spese.splice(Math.min(i,W().spese.length),0,it);save();render();toast('Spesa ripristinata');});}
 function openQuickAdd(){
@@ -1173,8 +1326,8 @@ function renderProiezione(el){
   <div class="card"><div class="card-head"><h3>🎯 Obiettivo di fatturato</h3><div style="display:flex;align-items:center;gap:8px"><input type="number" id="p_target" value="${target}" style="width:150px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);text-align:right"><button class="btn-sm" onclick="setTarget()">Aggiorna</button></div></div>
     <div class="casc">
       <div class="r"><span>Fatturato obiettivo</span><b>${eur(r.fatturato)}</b></div>
-      <div class="r"><span>Reddito imponibile (${w.forfettario.coefficiente}%)</span><span>${eur(r.reddito)}</span></div>
-      <div class="r"><span>Imposte (${w.forfettario.impostePerc}% del reddito)</span><span class="minus">− ${eur(r.imposte)}</span></div>
+      <div class="r"><span>Reddito imponibile (${perc(w.forfettario.coefficiente)})</span><span>${eur(r.reddito)}</span></div>
+      <div class="r"><span>Imposte (${perc(w.forfettario.impostePerc)} del reddito)</span><span class="minus">− ${eur(r.imposte)}</span></div>
       <div class="r"><span><b>Utile</b></span><b>${eur(r.utile)}</b></div>
       <div class="r"><span>Quota ordinario annua</span><span class="minus">− ${eur(p.quotaOrdinaria)}</span></div>
       <div class="r"><span><b>Premio</b></span><b>${eur(r.premio)}</b></div>
@@ -1348,7 +1501,7 @@ function renderStat(el){
 
 /* ============ IMPOSTAZIONI ============ */
 function renderImpostazioni(el){
-  const w=W();const f=w.forfettario,o=w.ordinario;
+  const w=W();const f=w.forfettario,o=w.ordinario;const fo=w.fiscoOrd;const ded=w.deduzioni||[];const fscale=localStorage.getItem(FSKEY)||'0';
   el.innerHTML=`
   ${pageHead('Impostazioni','Dati P.IVA, percentuali fiscali, ordinario, budget e utenze')}
   <div class="settings-note">Queste impostazioni valgono <b>solo per l'utenza corrente</b> (${esc(state.utenti[currentUser].nome)} — una partita IVA). L'altra utenza è del tutto separata.</div>
@@ -1383,6 +1536,31 @@ function renderImpostazioni(el){
       <div class="fld"><label>IVA (%)</label><input id="ord_iva" type="number" step="0.1" value="${o.iva}"></div>
     </div>
   </div>
+  <div class="card"><h3>🧾 Fiscalità ordinaria (dal 2027) — IRPEF e Inarcassa</h3>
+    <div class="desc">Aliquote usate nella sezione <b>Deducibilità</b> per la stima dell'ordinario. Default correnti (architetto, Inarcassa) — <b>modificali secondo la tua situazione; sono una stima, non un calcolo definitivo</b>.</div>
+    <div style="font-weight:600;font-size:13px;margin:4px 0 8px">Scaglioni IRPEF</div>
+    <div id="scagList">${(fo.scaglioni||[]).map((s,i)=>scagRowHTML(s,i,(fo.scaglioni||[]).length)).join('')}</div>
+    <div class="form-grid" style="margin-top:12px">
+      <div class="fld"><label>Addizionale regionale (%)</label><input id="fo_addreg" type="number" step="0.01" value="${fo.addRegionale}"></div>
+      <div class="fld"><label>Addizionale comunale (%)</label><input id="fo_addcom" type="number" step="0.01" value="${fo.addComunale}"></div>
+      <div class="fld"><label>Inarcassa soggettivo (%)</label><input id="fo_sogg" type="number" step="0.1" value="${fo.inaSoggettivo}"></div>
+      <div class="fld"><label>Inarcassa integrativo (%)</label><input id="fo_integ" type="number" step="0.1" value="${fo.inaIntegrativo}"></div>
+      <div class="fld"><label>Inarcassa maternità (€/anno)</label><input id="fo_mat" type="number" step="1" value="${fo.inaMaternita}"></div>
+      <div class="fld"><label>IVA (%)</label><input id="fo_iva" type="number" step="0.1" value="${fo.iva}"></div>
+    </div>
+  </div>
+  <div class="card"><h3>🏷️ Deducibilità costi — % per tipologia</h3><div class="desc">La percentuale deducibile di default per ogni tipologia di costo (art. 54 TUIR). Viene proposta quando registri una spesa; puoi sempre sovrascriverla sulla singola spesa.</div>
+    <div id="dedList">${ded.map((d,i)=>dedRowHTML(d,i)).join('')}</div>
+    <button class="btn-sm btn-ghost" onclick="addDedRow()">+ Aggiungi tipologia</button>
+  </div>
+  <div class="card"><h3>🔎 Accessibilità</h3><div class="desc">Dimensione del testo e dell'interfaccia. La scelta resta salvata su questo dispositivo.</div>
+    <div class="fs-ctrl" role="group" aria-label="Dimensione testo">
+      <span style="font-size:12px;color:var(--muted);margin-right:4px">Testo</span>
+      <button type="button" data-fs="0" aria-pressed="${fscale==='0'?'true':'false'}" onclick="setFontScale('0')" style="font-size:14px">A</button>
+      <button type="button" data-fs="1" aria-pressed="${fscale==='1'?'true':'false'}" onclick="setFontScale('1')" style="font-size:16px">A+</button>
+      <button type="button" data-fs="2" aria-pressed="${fscale==='2'?'true':'false'}" onclick="setFontScale('2')" style="font-size:18px">A++</button>
+    </div>
+  </div>
   <div class="card"><h3>🧩 Composizione fabbisogno mensile</h3><div class="desc">Le voci in cui si suddividono i ${eur(w.fabbisognoMensile)} mensili. Tipo "bonus" = va nei salvadanai; "→ settimanali" = alimenta il budget settimanale.</div>
     <div id="smList">${(w.speseMensili||[]).map(x=>smRowHTML(x)).join('')}</div>
     <button class="btn-sm btn-ghost" onclick="addSmRow()">+ Aggiungi voce</button>
@@ -1412,6 +1590,13 @@ function smRowHTML(x){x=x||{nome:'',importo:0,tipo:'spesa'};
   return `<div class="alloc-row" data-id="${x.id||''}"><input data-role="nome" value="${esc(x.nome)}" style="flex:1" placeholder="Voce"><input type="number" data-role="imp" value="${x.importo}" placeholder="€" style="width:100px"><select data-role="tipo" style="flex:0 0 130px">${opt('spesa','Spesa')}${opt('settimanale','→ settimanali')}${opt('bonus','Bonus')}</select><button class="mini-btn del" onclick="this.parentNode.remove()">×</button></div>`;
 }
 function addSmRow(){const l=document.getElementById('smList');const d=document.createElement('div');d.innerHTML=smRowHTML();l.appendChild(d.firstChild);}
+function scagRowHTML(s,i,n){s=s||{fino:null,perc:0};const last=i===n-1;
+  return `<div class="alloc-row" data-scag><span style="flex:0 0 68px;font-size:12px;color:var(--muted)">${i===0?'fino a':'poi fino a'}</span><input type="number" data-role="fino" value="${s.fino==null?'':s.fino}" placeholder="${last?'oltre (∞)':'€'}" style="width:120px" ${last?'disabled':''}><span style="font-size:12px;color:var(--muted)">€</span><input type="number" step="0.1" data-role="perc" value="${s.perc}" style="width:78px"><span style="font-size:12px;color:var(--muted)">%</span></div>`;
+}
+function dedRowHTML(d,i){d=d||{key:'',label:'',perc:100};
+  return `<div class="alloc-row" data-ded data-key="${esc(d.key||'')}"><input data-role="label" value="${esc(d.label)}" style="flex:1" placeholder="Tipologia di costo"><input type="number" step="1" min="0" max="100" data-role="perc" value="${d.perc}" style="width:88px"><span style="font-size:12px;color:var(--muted)">%</span><button class="mini-btn del" onclick="this.closest('[data-ded]').remove()" aria-label="Rimuovi tipologia">×</button></div>`;
+}
+function addDedRow(){const l=document.getElementById('dedList');const d=document.createElement('div');d.innerHTML=dedRowHTML();l.appendChild(d.firstChild);}
 function saveSettings(){
   const w=W();
   w.denominazione=document.getElementById('set_den').value.trim();
@@ -1427,6 +1612,21 @@ function saveSettings(){
   const dfF=newWorkspace().forfettario,dfO=newWorkspace().ordinario;
   w.forfettario={coefficiente:+document.getElementById('for_coef').value||dfF.coefficiente,impostePerc:+document.getElementById('for_imp').value||dfF.impostePerc,aliquotaSostitutiva:+document.getElementById('for_sost').value||dfF.aliquotaSostitutiva};
   w.ordinario={aliquotaImposte:+document.getElementById('ord_imp').value||dfO.aliquotaImposte,contributi:+document.getElementById('ord_con').value||dfO.contributi,iva:+document.getElementById('ord_iva').value||dfO.iva};
+  const scagRows=[...document.querySelectorAll('#scagList [data-scag]')];
+  const scaglioni=scagRows.map((r,idx)=>{const last=idx===scagRows.length-1;const fv=r.querySelector('[data-role=fino]').value;const fino=(last||fv==='')?null:(+fv);return {fino,perc:+r.querySelector('[data-role=perc]').value||0};});
+  const dfFo=newWorkspace().fiscoOrd;
+  w.fiscoOrd={
+    scaglioni:scaglioni.length?scaglioni:dfFo.scaglioni,
+    addRegionale:+document.getElementById('fo_addreg').value||0,
+    addComunale:+document.getElementById('fo_addcom').value||0,
+    inaSoggettivo:+document.getElementById('fo_sogg').value||0,
+    inaIntegrativo:+document.getElementById('fo_integ').value||0,
+    inaMaternita:+document.getElementById('fo_mat').value||0,
+    iva:+document.getElementById('fo_iva').value||0
+  };
+  const dedRows=[...document.querySelectorAll('#dedList [data-ded]')];
+  w.deduzioni=dedRows.map(r=>{const label=r.querySelector('[data-role=label]').value.trim();let key=r.dataset.key||(label.toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,14)||uid());return {key,label,perc:Math.max(0,Math.min(100,+r.querySelector('[data-role=perc]').value||0))};}).filter(x=>x.label);
+  if(!w.deduzioni.length)w.deduzioni=newWorkspace().deduzioni;
   state.utenti=[{nome:document.getElementById('u0_nome').value.trim()||'Utenza 1',pin:document.getElementById('u0_pin').value||'0000'},{nome:document.getElementById('u1_nome').value.trim()||'Utenza 2',pin:document.getElementById('u1_pin').value||'0000'}];
   save();
   document.getElementById('brandYear').textContent='Anno '+w.anno;
@@ -1446,6 +1646,10 @@ function toast(msg,err){const t=document.getElementById('toast');t.textContent=m
 const TKEY='hophop_theme';
 function applyTheme(t){document.documentElement.classList.toggle('light',t==='light');const m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute('content',t==='light'?'#ffffff':'#5b86f7');document.querySelectorAll('.theme-btn').forEach(b=>b.textContent=(t==='light'?'☀️':'🌙'));}
 function toggleTheme(){const cur=(localStorage.getItem(TKEY)==='light')?'dark':'light';localStorage.setItem(TKEY,cur);applyTheme(cur);}
+/* ---- Dimensione testo dinamica (accessibilità) ---- */
+const FSKEY='hophop_fontscale';const FSCALES={'0':1,'1':1.12,'2':1.25};
+function applyFontScale(s){s=(s in FSCALES)?s:'0';document.documentElement.style.zoom=FSCALES[s];document.documentElement.dataset.fscale=s;document.querySelectorAll('[data-fs]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.fs===s?'true':'false'));}
+function setFontScale(s){localStorage.setItem(FSKEY,s);applyFontScale(s);}
 /* ---- Undo eliminazioni ---- */
 let undoT,undoFn=null;
 function showUndo(msg,fn){const t=document.getElementById('toast');undoFn=fn;t.innerHTML=esc(msg)+' <button onclick="doUndo()" style="margin-left:14px;background:none;border:none;color:var(--accent);font-weight:800;cursor:pointer;font-size:14px">Annulla</button>';t.style.borderColor='var(--amber)';t.classList.add('show');clearTimeout(undoT);clearTimeout(toastT);undoT=setTimeout(()=>{t.classList.remove('show');undoFn=null;},5000);}
@@ -1528,6 +1732,27 @@ async function cloudSignOut(){if(sb){try{await sb.auth.signOut();}catch(e){}}clo
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('cloudlogin').style.display!=='none')cloudSignIn();});
 
 applyTheme(localStorage.getItem(TKEY)||'dark');
+applyFontScale(localStorage.getItem(FSKEY)||'0');
+/* ---- Service worker: apertura e uso offline (evita perdite dati) ---- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;if(!nw)return;
+        nw.addEventListener('statechange',()=>{
+          if(nw.state==='installed'&&navigator.serviceWorker.controller){
+            try{toast('Nuova versione disponibile: ricarica');}catch(e){}
+          }
+        });
+      });
+    }).catch(()=>{});
+  });
+}
+/* ---- Indicatore offline/online ---- */
+function updateNetStatus(){const on=navigator.onLine;const d=document.getElementById('syncDot'),t=document.getElementById('syncTxt');
+  if(!on){if(d)d.className='sync-dot off';if(t&&!/salvat|sincron/i.test(t.textContent||''))t.textContent='offline · dati salvati sul dispositivo';}}
+window.addEventListener('online',()=>{try{updateNetStatus();if(sb&&cloudUser)pushCloud(true);}catch(e){}});
+window.addEventListener('offline',updateNetStatus);
 boot();
 </script>
 </body>
