@@ -111,7 +111,7 @@ a{color:var(--accent)}
 .kpi.green .val{color:var(--green)}.kpi.amber .val{color:var(--amber)}.kpi.violet .val{color:var(--violet)}.kpi.red .val{color:var(--red)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.10)}
 /* Accento semantico per categoria di card (barra + velatura + titolo colorato) */
-.card[data-cat]{border-left-width:5px;border-left-style:solid;border-left-color:var(--ca,var(--line));background:var(--panel)}
+.card[data-cat]{border-left-width:4px;border-left-style:solid;border-left-color:var(--ca,var(--line));background:var(--panel)}
 .card[data-cat=income]{--ca:var(--s1)}
 .card[data-cat=tax]{--ca:var(--s4)}
 .card[data-cat=bonus]{--ca:var(--s6)}
@@ -120,16 +120,10 @@ a{color:var(--accent)}
 .card[data-cat=stat]{--ca:var(--s5)}
 .card[data-cat=info]{--ca:var(--smut)}
 .card[data-cat] h3{color:var(--txt)}
-.card[data-cat] h3::before{content:"";display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--ca);flex:0 0 auto;margin-right:2px}
 @supports (background:color-mix(in srgb,red,blue)){
-  .card[data-cat]{background:color-mix(in srgb,var(--ca) 11%,var(--panel))}
-  .card[data-cat] h3{color:color-mix(in srgb,var(--ca) 82%,var(--txt))}
+  .card[data-cat]{background:color-mix(in srgb,var(--ca) 6%,var(--panel))}
+  .card[data-cat] h3{color:color-mix(in srgb,var(--ca) 70%,var(--txt))}
   .card[data-cat] h3 .num,.card[data-cat] h3 b{color:inherit}
-}
-@media(max-width:640px){
-  .card[data-cat]{border-left-width:6px}
-  .card[data-cat] h3::before{width:10px;height:10px}
-  @supports (background:color-mix(in srgb,red,blue)){.card[data-cat]{background:color-mix(in srgb,var(--ca) 14%,var(--panel))}}
 }
 .card h3{font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
 .card .desc{color:var(--muted);font-size:12px;margin-bottom:16px}
