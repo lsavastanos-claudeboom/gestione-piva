@@ -110,6 +110,21 @@ a{color:var(--accent)}
 .kpi.accent{border-left:3px solid var(--accent)}
 .kpi.green .val{color:var(--green)}.kpi.amber .val{color:var(--amber)}.kpi.violet .val{color:var(--violet)}.kpi.red .val{color:var(--red)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.10)}
+/* Accento semantico per categoria di card (barra + velatura + titolo colorato) */
+.card[data-cat]{border-left-width:4px;border-left-style:solid;border-left-color:var(--ca,var(--line));background:var(--panel)}
+.card[data-cat=income]{--ca:var(--s1)}
+.card[data-cat=tax]{--ca:var(--s4)}
+.card[data-cat=bonus]{--ca:var(--s6)}
+.card[data-cat=spese]{--ca:var(--s2)}
+.card[data-cat=plan]{--ca:var(--s3)}
+.card[data-cat=stat]{--ca:var(--s5)}
+.card[data-cat=info]{--ca:var(--smut)}
+.card[data-cat] h3{color:var(--txt)}
+@supports (background:color-mix(in srgb,red,blue)){
+  .card[data-cat]{background:color-mix(in srgb,var(--ca) 6%,var(--panel))}
+  .card[data-cat] h3{color:color-mix(in srgb,var(--ca) 70%,var(--txt))}
+  .card[data-cat] h3 .num,.card[data-cat] h3 b{color:inherit}
+}
 .card h3{font-size:15px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
 .card .desc{color:var(--muted);font-size:12px;margin-bottom:16px}
 .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
@@ -730,12 +745,12 @@ function renderDashboard(el){
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
   <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
-  <div class="card"><div class="card-head"><h3>📊 Stato del mese — <span id="statoMeseLabel">${monthLabel(smSel.sel)}${dashMeseOffset===0?'':' (in anticipo)'}</span></h3>
+  <div class="card" data-cat="income"><div class="card-head"><h3>📊 Stato del mese — <span id="statoMeseLabel">${monthLabel(smSel.sel)}${dashMeseOffset===0?'':' (in anticipo)'}</span></h3>
     ${smSel.maxOff>0?`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--muted)">scorri i mesi</span><input type="range" id="statoMeseSlider" aria-label="Scorri i mesi successivi" min="0" max="${smSel.maxOff}" step="1" value="${dashMeseOffset}" oninput="setStatoMese(this.value)" style="width:130px;accent-color:var(--violet)"></div>`:''}</div>
     <div class="desc">Spesa settimanale, bonus mensili tipo 1/2 e monte bonus accumulato · usa lo slider per vedere i mesi successivi in anticipo</div>
     <div id="statoMeseBody">${statoMeseBodyHTML(smSel.sel)}</div>
   </div>
-  <div class="card"><div class="card-head"><h3>💸 Spese dal monte bonus</h3><button class="btn-sm desk-only" onclick="openQuickAdd()">+ Registra spesa</button></div>
+  <div class="card" data-cat="bonus"><div class="card-head"><h3>💸 Spese dal monte bonus</h3><button class="btn-sm desk-only" onclick="openQuickAdd()">+ Registra spesa</button></div>
     <div class="desc">Quanto usi dal monte bonus (fuori dai ${eur(fab)} fissi) · andamento mensile e settimanale, con gli ultimi movimenti</div>
     <div class="kpi-grid" style="margin:6px 0 16px">
       <div class="kpi violet"><div class="lbl">Questo mese</div><div class="val" style="font-size:20px">${eur(curSpesaMonte)}</div></div>
@@ -765,12 +780,12 @@ function renderDashboard(el){
     <div class="kpi ${saldo<0?'red':''}"><div class="lbl">🏦 Saldo conto imposte</div><div class="val">${eur(saldo)}</div><div class="sub">liquidità per imposte e Inarcassa</div></div>
     <div class="kpi green"><div class="lbl">📆 Ordinario allocato</div><div class="val">${eur(t.ordinarioAllocato)}</div><div class="sub">destinato alla gestione mensile</div></div>
   </div>
-  ${w.regimeAttivo==='forfettario'?`<div class="card">
+  ${w.regimeAttivo==='forfettario'?`<div class="card" data-cat="tax">
     <div class="card-head"><h3>📊 Tetto forfettario ${w.anno}</h3><span style="font-size:13px;color:${residuoTetto<0?'var(--red)':tettoPerc>=85?'var(--amber)':'var(--muted)'}">${eur(usato)} / ${eur(tetto)}</span></div>
     <div class="prog big ${tettoPerc>=100?'over':tettoPerc>=85?'warn':''}"><span style="width:${tettoPerc}%"></span></div>
     <div style="font-size:12px;color:var(--muted);margin-top:6px">${residuoTetto>=0?('Residuo prima del limite: '+eur(residuoTetto)):('Superato di '+eur(-residuoTetto))} ${tettoPerc>=85&&residuoTetto>=0?'⚠️ ti stai avvicinando al tetto':''}</div>
   </div>`:''}
-  <div class="card"><div class="card-head"><h3>🎁 Bonus ${w.anno} previsto</h3><span style="font-size:12px;color:var(--muted)">tetto ${eur(bonusAnnuoPrev)} · fatturato ${eur(bonusTarget)}</span></div>
+  <div class="card" data-cat="bonus"><div class="card-head"><h3>🎁 Bonus ${w.anno} previsto</h3><span style="font-size:12px;color:var(--muted)">tetto ${eur(bonusAnnuoPrev)} · fatturato ${eur(bonusTarget)}</span></div>
     <div style="display:flex;align-items:center;gap:26px;flex-wrap:wrap;margin-top:6px">
       <div style="flex-shrink:0">${svgDonut(bonusAnnuoPrev>0?bonusUsato/bonusAnnuoPrev:0,bonusUsato>bonusAnnuoPrev?'var(--s4)':'var(--s6)',Math.round(bonusUsatoPerc)+'%','maturato')}</div>
       <div style="flex:1;min-width:180px">
@@ -789,7 +804,7 @@ function renderFatture(el){
   const w=W();const fs=fattureAnno().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   el.innerHTML=`
   ${pageHead('Fatture','Fatture emesse e ripartizione di ogni importo')}
-  <div class="card"><div class="card-head"><h3>🧾 Elenco fatture ${w.anno}</h3><button class="btn-sm" onclick="openFattura()">+ Nuova fattura</button></div>
+  <div class="card" data-cat="income"><div class="card-head"><h3>🧾 Elenco fatture ${w.anno}</h3><button class="btn-sm" onclick="openFattura()">+ Nuova fattura</button></div>
     ${fs.length===0?'<div class="empty">Nessuna fattura. Clicca “Nuova fattura” per iniziare.</div>':`
     <input class="filter-in" placeholder="🔎 Cerca per numero, cliente, descrizione…" oninput="filterRows(this,'fattureTbody')">
     <table class="rtable"><thead><tr><th>N.</th><th>Data</th><th>Cliente</th><th class="num">Compenso</th><th class="num">Rivalsa</th><th class="num">Totale</th><th class="num">Da versare</th><th class="num">Bonus</th><th>Stato</th><th></th></tr></thead><tbody id="fattureTbody">
@@ -921,7 +936,7 @@ function renderConto(el){
       <div class="kpi"><div class="lbl">➖ Pagato</div><div class="val" style="font-size:20px">${eur(pagInarcassa+pagImposte)}</div><div class="sub">Inarcassa ${eur(pagInarcassa)} · Imposte ${eur(pagImposte)}</div></div>
     </div>
   </div>
-  <div class="card"><div class="card-head"><h3>🗓️ Scadenze e pagamenti previsti ${y}</h3><button class="btn-sm" onclick="openPrevisto()">+ Scadenza / stima</button></div>
+  <div class="card" data-cat="tax"><div class="card-head"><h3>🗓️ Scadenze e pagamenti previsti ${y}</h3><button class="btn-sm" onclick="openPrevisto()">+ Scadenza / stima</button></div>
     <div class="desc">Scadenze tipiche di imposte e Inarcassa: imposta la <b>stima</b> di quanto verserai (non incide sul saldo) e registra il pagamento quando lo effettui. Il "saldo ipotetico" parte dal saldo attuale (${eur(saldo)}) e scala le stime non ancora pagate in ordine di scadenza.</div>
     <table class="rtable"><thead><tr><th>Scadenza</th><th>Tipo</th><th class="num">Stima</th><th>Stato</th><th class="num">Saldo ipotetico</th><th></th></tr></thead><tbody>
     ${scadRows.map(r=>`<tr>
@@ -940,7 +955,7 @@ function renderConto(el){
       <div class="kpi ${copertura>0?'red':'green'}"><div class="lbl">${copertura>0?'Mancano sul conto':'Coperto dal conto'}</div><div class="val" style="font-size:20px">${eur(Math.abs(copertura))}</div><div class="sub">saldo ${eur(saldo)} vs stime ${eur(prevTot)}</div></div>
     </div>`:''}
   </div>
-  <div class="card"><div class="card-head"><h3>💸 Movimenti del conto</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-sm" onclick="openMovimento('pagamento','imposte')">− Pagamento imposte</button><button class="btn-sm" style="background:var(--violet)" onclick="openMovimento('pagamento','inarcassa')">− Pagamento Inarcassa</button><button class="btn-sm btn-ghost" onclick="openMovimento('deposito','altro')">+ Deposito</button><button class="btn-sm btn-ghost" onclick="openMovimento('prelievo','altro')">− Prelievo</button></div></div>
+  <div class="card" data-cat="tax"><div class="card-head"><h3>💸 Movimenti del conto</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-sm" onclick="openMovimento('pagamento','imposte')">− Pagamento imposte</button><button class="btn-sm" style="background:var(--violet)" onclick="openMovimento('pagamento','inarcassa')">− Pagamento Inarcassa</button><button class="btn-sm btn-ghost" onclick="openMovimento('deposito','altro')">+ Deposito</button><button class="btn-sm btn-ghost" onclick="openMovimento('prelievo','altro')">− Prelievo</button></div></div>
     <input class="filter-in" placeholder="🔎 Cerca movimento…" oninput="filterRows(this,'movTbody')">
     <table class="rtable"><thead><tr><th>Data</th><th>Movimento</th><th class="num">Importo</th><th class="num">Saldo</th><th></th></tr></thead><tbody id="movTbody">
     ${ledger.slice().reverse().map(r=>`<tr><td class="sm-title">${r.tipo==='init'?'':fmtDate(r.data)+' · '}${esc(r.desc)} ${r.cat==='inarcassa'?'<span class="tag ina">Inarcassa</span>':r.cat==='imposte'?'<span class="tag imp">Imposte</span>':''}${r.pending?'<span class="tag wait" style="margin-left:6px">non incassata</span>':''}</td><td class="sm-hide" data-label="Data">${r.tipo==='init'?'—':fmtDate(r.data)}</td>
@@ -1005,20 +1020,20 @@ function renderOrdinario(el){
     <div class="kpi green"><div class="lbl">Riservato dalle fatture</div><div class="val" style="font-size:22px">${eur(riservato)}</div><div class="sub">quote di netto destinate all'ordinario</div></div>
     <div class="kpi"><div class="lbl">Fabbisogno mensile</div><div class="val" style="font-size:22px">${eur(fab)}</div><div class="sub">spesi di default ogni mese</div></div>
   </div>
-  <div class="card"><h3>📊 Quota del fatturato destinata all'ordinario</h3>
+  <div class="card" data-cat="tax"><h3>📊 Quota del fatturato destinata all'ordinario</h3>
     <div class="desc">Del fatturato annuo, ${eur(fabAnno)} coprono la gestione ordinaria (i ${eur(fab)}/mese); il resto finisce in imposte e bonus.</div>
     <div style="display:flex;justify-content:space-between;font-size:14px"><span>Riservato dalle fatture <b>${eur(riservato)}</b></span><span style="color:var(--muted)">Fabbisogno annuo ${eur(fabAnno)}</span></div>
     <div class="prog big ${cov>=100?'':'warn'}"><span style="width:${cov}%"></span></div>
     <div style="font-size:12px;color:var(--muted);margin-top:6px">${riservato>=fabAnno?('Ordinario coperto · eccedenza '+eur(riservato-fabAnno)+' verso bonus'):('Mancano '+eur(fabAnno-riservato)+' da coprire con le fatture')}</div>
   </div>
-  <div class="card"><h3>🧩 Composizione del fabbisogno mensile</h3><div class="desc">Come vengono spesi/allocati i ${eur(fab)} di ogni mese (modificabile in Impostazioni). I "bonus" alimentano i salvadanai nella sezione Bonus.</div>
+  <div class="card" data-cat="plan"><h3>🧩 Composizione del fabbisogno mensile</h3><div class="desc">Come vengono spesi/allocati i ${eur(fab)} di ogni mese (modificabile in Impostazioni). I "bonus" alimentano i salvadanai nella sezione Bonus.</div>
     ${(()=>{const sm=w.speseMensili||[];const sum=sm.reduce((s,x)=>s+(+x.importo||0),0);const badge=t=>t==='bonus'?'<span class="tag ina">bonus</span>':t==='settimanale'?'<span class="tag imp">→ settimanali</span>':'<span class="tag">spesa</span>';
       return `<table><thead><tr><th>Voce</th><th>Destinazione</th><th class="num">€/mese</th></tr></thead><tbody>
       ${sm.map(x=>`<tr><td>${esc(x.nome)}</td><td>${badge(x.tipo)}</td><td class="num">${eur(x.importo)}</td></tr>`).join('')}
       <tr><td colspan="2"><b>Totale mensile</b></td><td class="num"><b>${eur(sum)}</b> ${Math.abs(sum-fab)>0.5?`<span style="color:var(--amber)">≠ fabbisogno ${eur(fab)}</span>`:''}</td></tr>
       </tbody></table>`;})()}
   </div>
-  <div class="card"><h3>📆 Copertura dei mesi</h3><div class="desc">Quali mesi sono coperti dalle allocazioni delle fatture · ogni mese richiede ${eur(fab)}</div>
+  <div class="card" data-cat="plan"><h3>📆 Copertura dei mesi</h3><div class="desc">Quali mesi sono coperti dalle allocazioni delle fatture · ogni mese richiede ${eur(fab)}</div>
     ${(()=>{const dett={};fattureAnno().forEach(f=>(f.allocazioni||[]).forEach(a=>{(dett[a.mese]=dett[a.mese]||[]).push({num:f.numero||'—',cli:f.cliente||'',imp:a.importo});}));
       const keys=[...new Set([...monthsOfYear(w.anno),...Object.keys(dett)])].sort();
       return `<table class="rtable"><thead><tr><th>Mese</th><th class="num">Fabbisogno</th><th class="num">Coperto</th><th>Stato</th><th>Coperto da</th></tr></thead><tbody>${keys.map(k=>{const it=dett[k]||[];const c=it.reduce((s,i)=>s+i.imp,0);const st=c>=fab-0.01?'<span class="tag ok">Coperto</span>':c>0?'<span class="tag wait">Parziale</span>':'<span class="tag" style="background:rgba(240,97,109,.15);color:var(--red)">Scoperto</span>';
@@ -1043,7 +1058,7 @@ function renderSpese(el){
   const w=W();const budget=w.budgetSettimanale;
   el.innerHTML=`
   ${pageHead('Spese settimanali','Spese ordinarie confrontate con il budget settimanale')}
-  <div class="card"><div class="card-head"><h3>🛒 Registro spese</h3><div><span style="font-size:12px;color:var(--muted);margin-right:10px">Budget/settimana: <b style="color:var(--txt)">${eur(budget)}</b></span><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div></div>
+  <div class="card" data-cat="spese"><div class="card-head"><h3>🛒 Registro spese</h3><div><span style="font-size:12px;color:var(--muted);margin-right:10px">Budget/settimana: <b style="color:var(--txt)">${eur(budget)}</b></span><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div></div>
     ${weeklyRegistroHTML()}
   </div>`;
 }
@@ -1070,15 +1085,15 @@ function renderDeducibili(el){
     <div class="kpi"><div class="lbl">Risparmio fiscale stimato</div><div class="val" style="font-size:22px;color:var(--green)">${eur(risparmio)}</div><div class="sub">≈ deducibile × aliquota marginale</div></div>
     <div class="kpi"><div class="lbl">Aliquota marginale stimata</div><div class="val" style="font-size:22px">${perc(o.aliqMarg)}</div><div class="sub">IRPEF + addizionali + Inarcassa</div></div>
   </div>
-  ${perTipo.length?`<div class="card"><h3>🏷️ Deducibile per tipologia di costo</h3>
+  ${perTipo.length?`<div class="card" data-cat="tax"><h3>🏷️ Deducibile per tipologia di costo</h3>
     <div class="desc">Per ogni tipologia: quanto hai speso (fatturato) e quanto ne porti in deduzione, con l'aliquota applicata.</div>
     ${svgHBars(perTipo.map((r,i)=>({label:r.label.length>22?r.label.slice(0,21)+'…':r.label,value:r.deducibile,color:COLS[i%COLS.length]})),{fmt:eur})}
     <table class="rtable" style="margin-top:8px"><thead><tr><th>Tipologia</th><th class="num">Spese</th><th class="num">Imponibile</th><th class="num">% ded.</th><th class="num">Deducibile</th></tr></thead><tbody>
     ${perTipo.map(r=>`<tr><td data-label="Tipologia"><b>${esc(r.label)}</b></td><td class="num" data-label="Spese">${num(r.n)}</td><td class="num" data-label="Imponibile">${eur(r.imponibile)}</td><td class="num" data-label="% ded.">${perc(r.imponibile?r.deducibile/r.imponibile*100:0)}</td><td class="num" data-label="Deducibile" style="color:var(--green)"><b>${eur(r.deducibile)}</b></td></tr>`).join('')}
     <tr><td data-label="Tipologia"><b>Totale</b></td><td class="num" data-label="Spese"><b>${num(fatt.length)}</b></td><td class="num" data-label="Imponibile"><b>${eur(totImponibile)}</b></td><td class="num" data-label="% ded."><b>${perc(pctMedia)}</b></td><td class="num" data-label="Deducibile" style="color:var(--green)"><b>${eur(totDeducibile)}</b></td></tr>
     </tbody></table>
-  </div>`:`<div class="card"><h3>🧮 Nessuna spesa fatturata</h3><div class="desc">Apri una spesa (o creane una nuova) e attiva “Spesa fatturata” per iniziare a costruire il deducibile in vista dell'ordinario 2027.</div><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>`}
-  <div class="card"><h3>🧾 Simulazione regime ordinario ${ordAttivo?'':'(dal 2027)'}</h3>
+  </div>`:`<div class="card" data-cat="tax"><h3>🧮 Nessuna spesa fatturata</h3><div class="desc">Apri una spesa (o creane una nuova) e attiva “Spesa fatturata” per iniziare a costruire il deducibile in vista dell'ordinario 2027.</div><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>`}
+  <div class="card" data-cat="tax"><h3>🧾 Simulazione regime ordinario ${ordAttivo?'':'(dal 2027)'}</h3>
     <div class="desc">Stima su compensi fatturati e costi deducibili di quest'anno (${w.anno}). Metodo semplificato — non sostituisce il calcolo del commercialista.</div>
     <table class="rtable"><tbody>
       <tr><td data-label="Voce">Compensi fatturati (imponibile professionale)</td><td class="num" data-label="Importo">${eur(o.compensi)}</td></tr>
@@ -1095,7 +1110,7 @@ function renderDeducibili(el){
     </tbody></table>
     <div style="font-size:11px;color:var(--muted);margin-top:8px">Inarcassa integrativo (${perc(w.fiscoOrd.inaIntegrativo)} = ${eur(o.inaInteg)}) è addebitato in fattura al cliente: partita di giro, non incluso nelle imposte a tuo carico. Le aliquote sono modificabili in Impostazioni.</div>
   </div>
-  <div class="card"><div class="card-head"><h3>📋 Elenco spese fatturate</h3><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>
+  <div class="card" data-cat="tax"><div class="card-head"><h3>📋 Elenco spese fatturate</h3><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>
     ${fatt.length?`<table class="rtable"><thead><tr><th>Data</th><th>Descrizione</th><th>Tipologia</th><th class="num">Importo</th><th class="num">Deducibile</th></tr></thead><tbody>
     ${fatt.map(s=>`<tr onclick="openSpesa('${s.id}')" style="cursor:pointer"><td data-label="Data">${fmtDate(s.data)}</td><td data-label="Descrizione"><b>${esc(s.descrizione||s.categoria||'—')}</b><br><span style="font-size:11px;color:var(--muted)">${esc(s.categoria||'')}</span></td><td data-label="Tipologia">${tipoBadge(s.tipoCosto)} <span style="font-size:11px;color:var(--muted)">${perc(s.deduzionePerc!=null?s.deduzionePerc:dedPercDefaultTipo(s.tipoCosto))}</span></td><td class="num" data-label="Importo">${eur(s.importo)}</td><td class="num" data-label="Deducibile" style="color:var(--green)">${eur(deducibileSpesa(s))}</td></tr>`).join('')}
     </tbody></table>`:`<div class="empty">Nessuna spesa contrassegnata come fatturata.</div>`}
@@ -1167,7 +1182,7 @@ function renderBonus(el){
       ${potsMon.map(p=>`<div class="kpi"><div class="lbl">📅 ${esc(p.nome)}</div><div class="val" style="font-size:20px;color:${p.saldo<0?'var(--red)':'var(--txt)'}">${eur(p.saldo)}</div><div class="sub">mese in corso</div></div>`).join('')}
     </div>
   </div>
-  <div class="card"><h3>📅 Quanto puoi spendere nei prossimi mesi</h3>
+  <div class="card" data-cat="bonus"><h3>📅 Quanto puoi spendere nei prossimi mesi</h3>
     <div class="desc">Congela una parte del monte da tenere ferma (che non spendi): la proiezione mensile userà solo il resto. Le fatture future aumenteranno il monte; i bonus mensili sono a parte.</div>
     <div style="background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
@@ -1179,7 +1194,7 @@ function renderBonus(el){
     </div>
     <div id="spendBody">${spendBonusInner()}</div>
   </div>
-  <div class="card"><h3>🐷 Salvadanai</h3><div class="desc">I bonus mensili mostrano il valore del mese in corso (${monthLabel(curBonusMese())}), non il progressivo. Il monte bonus invece è cumulativo. Modifica gli importi mensili nella composizione in “Ordinario mensile”; i singoli mesi sono nel calendario qui sotto.</div>
+  <div class="card" data-cat="bonus"><h3>🐷 Salvadanai</h3><div class="desc">I bonus mensili mostrano il valore del mese in corso (${monthLabel(curBonusMese())}), non il progressivo. Il monte bonus invece è cumulativo. Modifica gli importi mensili nella composizione in “Ordinario mensile”; i singoli mesi sono nel calendario qui sotto.</div>
     <table class="rtable"><thead><tr><th>Salvadanaio</th><th class="num">Iniziale</th><th class="num">Accreditato</th><th class="num">Prelevato</th><th class="num">Saldo</th></tr></thead><tbody>
     ${pots.map(p=>`<tr><td data-label="Salvadanaio" style="text-align:left"><b>${esc(p.nome)}</b><br><span style="font-size:11px;color:var(--muted)">${esc(p.info||'')}</span></td>
       <td class="num" data-label="Iniziale">${eur(p.iniziale)}</td><td class="num" data-label="Accreditato" style="color:var(--green)">${eur(p.accrediti)}</td>
@@ -1187,7 +1202,7 @@ function renderBonus(el){
       <td class="num" data-label="Saldo"><b style="color:${p.saldo<0?'var(--red)':'var(--violet)'}">${eur(p.saldo)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
-  <div class="card"><div class="card-head"><h3>📈 Storico monte a fine mese</h3></div>
+  <div class="card" data-cat="bonus"><div class="card-head"><h3>📈 Storico monte a fine mese</h3></div>
     <div class="desc">Per ogni mese, da adesso in avanti: le entrate nel monte (bonus delle fatture), le uscite (utilizzi registrati) e il totale bonus disponibile a fine mese. I mesi ancora da venire mostrano il valore previsto in base ai dati inseriti finora.</div>
     ${storicoFwd.length?svgBars(storicoFwd.map(s=>({label:s.label.slice(0,3),value:s.monte,color:s.futuro?'var(--smut)':'var(--s6)'}))):''}
     <table class="rtable"><thead><tr><th>Fine mese</th><th class="num">Entrate</th><th class="num">Uscite</th><th class="num">Monte disponibile</th></tr></thead><tbody>
@@ -1198,7 +1213,7 @@ function renderBonus(el){
       <td class="num" data-label="Monte disponibile"><b style="color:${s.monte<0?'var(--red)':'var(--violet)'}">${eur(s.monte)}</b></td></tr>`).join('')}
     </tbody></table>
   </div>
-  <div class="card"><div class="card-head"><h3>💸 Utilizzi dei bonus</h3><button class="btn-sm" onclick="openPrelievoBonus()">+ Registra utilizzo</button></div>
+  <div class="card" data-cat="bonus"><div class="card-head"><h3>💸 Utilizzi dei bonus</h3><button class="btn-sm" onclick="openPrelievoBonus()">+ Registra utilizzo</button></div>
     <div class="desc">Analizza gli utilizzi dei bonus per tipo e periodo · sotto l'elenco filtrato</div>
     <div class="fchip-row"><span class="fchip-lbl">Tipo</span><button class="fchip${bonusUtilTipo==='tutti'?' fchip-on':''}" data-butip="tutti" onclick="setBonusUtilTipo('tutti')">Tutti</button><button class="fchip${bonusUtilTipo==='monte'?' fchip-on':''}" data-butip="monte" onclick="setBonusUtilTipo('monte')">🎁 Monte bonus</button><button class="fchip${bonusUtilTipo==='mensili'?' fchip-on':''}" data-butip="mensili" onclick="setBonusUtilTipo('mensili')">📅 Bonus mensili</button></div>
     <div class="fchip-row"><span class="fchip-lbl">Periodo</span><select class="fsel" onchange="setBonusUtilMese(this.value)"><option value="" ${bonusUtilMese===''?'selected':''}>Tutto l'anno ${w.anno}</option>${MESI.map((mn,i)=>{const k=w.anno+'-'+String(i+1).padStart(2,'0');return `<option value="${k}" ${bonusUtilMese===k?'selected':''}>${mn} ${w.anno}</option>`;}).join('')}</select></div>
@@ -1329,7 +1344,7 @@ function renderProiezione(el){
   const spese=(p.speseGrandi||[]);
   el.innerHTML=`
   ${pageHead('Proiezione '+w.anno,'Pianifica in base al fatturato obiettivo, come nel tuo prospetto')}
-  <div class="card"><div class="card-head"><h3>🎯 Obiettivo di fatturato</h3><div style="display:flex;align-items:center;gap:8px"><input type="number" id="p_target" value="${target}" style="width:150px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);text-align:right"><button class="btn-sm" onclick="setTarget()">Aggiorna</button></div></div>
+  <div class="card" data-cat="tax"><div class="card-head"><h3>🎯 Obiettivo di fatturato</h3><div style="display:flex;align-items:center;gap:8px"><input type="number" id="p_target" value="${target}" style="width:150px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);text-align:right"><button class="btn-sm" onclick="setTarget()">Aggiorna</button></div></div>
     <div class="casc">
       <div class="r"><span>Fatturato obiettivo</span><b>${eur(r.fatturato)}</b></div>
       <div class="r"><span>Reddito imponibile (${perc(w.forfettario.coefficiente)})</span><span>${eur(r.reddito)}</span></div>
@@ -1351,12 +1366,12 @@ function renderProiezione(el){
     </div>`:''}
     <div style="font-size:12px;color:var(--muted);margin-top:12px">Fatturato già emesso quest'anno: <b style="color:var(--txt)">${eur(t.compensi)}</b> — mancano ${eur(Math.max(0,target-t.compensi))} all'obiettivo (compensi).</div>
   </div>
-  <div class="card"><h3>📊 Scenari a confronto</h3><div class="desc">Bonus residuo con diversi livelli di fatturato</div>
+  <div class="card" data-cat="plan"><h3>📊 Scenari a confronto</h3><div class="desc">Bonus residuo con diversi livelli di fatturato</div>
     <table class="rtable"><thead><tr><th>Fatturato</th><th class="num">Imposte</th><th class="num">Utile</th><th class="num">− Ordinario</th><th class="num">Premio</th><th class="num">Bonus annuo</th><th class="num">− Spese</th><th class="num">Residuo</th></tr></thead><tbody>
     ${(p.scenari||[]).map(s=>{const x=proietta(s);return `<tr><td data-label="Fatturato"><b>${eur(s)}</b></td><td class="num" data-label="Imposte" style="color:var(--amber)">${eur(x.imposte)}</td><td class="num" data-label="Utile">${eur(x.utile)}</td><td class="num" data-label="− Ordinario" style="color:var(--muted)">− ${eur(w.proiezione.quotaOrdinaria)}</td><td class="num" data-label="Premio">${eur(x.premio)}</td><td class="num" data-label="Bonus annuo">${eur(x.bonusAnnuo)}</td><td class="num" data-label="− Spese">${eur(x.speseGrandi)}</td><td class="num" data-label="Residuo" style="color:${x.residuoDopoSpese<0?'var(--red)':'var(--violet)'}"><b>${eur(x.residuoDopoSpese)}</b></td></tr>`;}).join('')}
     </tbody></table>
   </div>
-  <div class="card"><h3>⚙︎ Parametri della proiezione</h3>
+  <div class="card" data-cat="plan"><h3>⚙︎ Parametri della proiezione</h3>
     <div class="form-grid">
       <div class="fld"><label>Quota ordinario annua (€)</label><input id="pp_ord" type="number" value="${p.quotaOrdinaria}"></div>
       <div class="fld"><label>Accantonamento anno successivo (€)</label><input id="pp_succ" type="number" value="${p.accantonaAnnoSucc}"></div>
@@ -1472,9 +1487,9 @@ function renderStat(el){
   if(!insights.length)insights.push('Registra qualche spesa e prelievo dai bonus: appena ci sarà uno storico, qui compariranno analisi e ragionamenti automatici sui tuoi numeri.');
   el.innerHTML=`
   ${pageHead('Statistiche','Grafici su fatturato, bonus e spese')}
-  <div class="card"><h3>🔎 Analisi automatica</h3><div class="desc">Ragionamenti sui tuoi numeri, aggiornati man mano che cresce lo storico</div>
+  <div class="card" data-cat="stat"><h3>🔎 Analisi automatica</h3><div class="desc">Ragionamenti sui tuoi numeri, aggiornati man mano che cresce lo storico</div>
     <ul style="margin:6px 0 0;padding-left:18px;line-height:1.9;font-size:14px">${insights.map(i=>`<li>${i}</li>`).join('')}</ul></div>
-  <div class="card"><h3>💸 Spese dal monte bonus — dettaglio</h3><div class="desc">Analisi degli utilizzi del monte bonus (esclusi i bonus mensili): totali, andamento settimanale e mensile</div>
+  <div class="card" data-cat="bonus"><h3>💸 Spese dal monte bonus — dettaglio</h3><div class="desc">Analisi degli utilizzi del monte bonus (esclusi i bonus mensili): totali, andamento settimanale e mensile</div>
     ${mbStat.n?`
     <div class="kpi-grid" style="margin:6px 0 16px">
       <div class="kpi violet"><div class="lbl">Totale ${w.anno}</div><div class="val" style="font-size:20px">${eur(mbStat.tot)}</div><div class="sub">${mbStat.n} utilizz${mbStat.n===1?'o':'i'}</div></div>
@@ -1489,19 +1504,19 @@ function renderStat(el){
     <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin:20px 0 8px">🔝 Utilizzi più grandi</div>
     <table class="rtable"><thead><tr><th>Voce</th><th>Data</th><th class="num">Importo</th></tr></thead><tbody>${mbStat.top.map(p=>`<tr><td class="sm-title">${fmtDate(p.data)} · ${esc(p.note||'—')}</td><td class="sm-hide" data-label="Voce" style="text-align:left">${esc(p.note||'—')}</td><td class="sm-hide" data-label="Data">${fmtDate(p.data)}</td><td class="num" data-label="Importo" style="color:var(--violet)">${eur(p.importo)}</td></tr>`).join('')}</tbody></table>
     `:'<div class="empty">Nessun utilizzo dal monte bonus registrato finora.</div>'}</div>
-  <div class="card"><h3>📅 Spese oltre i ${eur(fab)} — storico mensile</h3><div class="desc">Quanto hai speso dai bonus ogni mese, fuori dai ${eur(fab)} fissi</div>
+  <div class="card" data-cat="spese"><h3>📅 Spese oltre i ${eur(fab)} — storico mensile</h3><div class="desc">Quanto hai speso dai bonus ogni mese, fuori dai ${eur(fab)} fissi</div>
     ${fuoriKeys.length?`<table class="rtable"><thead><tr><th>Mese</th><th class="num">Speso dai bonus</th></tr></thead><tbody>${fuoriKeys.map(k=>`<tr><td data-label="Mese"><b>${monthLabel(k)}</b></td><td class="num" data-label="Speso dai bonus" style="color:var(--violet)">${eur(fuoriMap[k])}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nessuna spesa dai bonus registrata.</div>'}</div>
-  <div class="card"><h3>💰 Ripartizione del fatturato ${w.anno}</h3><div class="desc">Come si dividono i ${eur(t.compensi)} di compensi · rivalsa ${eur(t.integrativo)} gestita a parte</div>
+  <div class="card" data-cat="tax"><h3>💰 Ripartizione del fatturato ${w.anno}</h3><div class="desc">Come si dividono i ${eur(t.compensi)} di compensi · rivalsa ${eur(t.integrativo)} gestita a parte</div>
     ${rip.length?svgHBars(rip):'<div class="empty">Nessuna fattura registrata.</div>'}</div>
-  <div class="card"><h3>🎁 Salvadanai bonus — saldo attuale</h3><div class="desc">Totale disponibile ${eur(pots.reduce((s,p)=>s+p.saldo,0))}</div>
+  <div class="card" data-cat="bonus"><h3>🎁 Salvadanai bonus — saldo attuale</h3><div class="desc">Totale disponibile ${eur(pots.reduce((s,p)=>s+p.saldo,0))}</div>
     ${svgBars(pots.map((p,i)=>({label:p.nome.replace('Bonus ','').replace('mensile ',''),value:p.saldo,color:['var(--s6)','var(--s1)','var(--s5)'][i]||'var(--s6)'})))}</div>
-  <div class="card"><h3>📈 Accumulo previsto bonus mensili</h3><div class="desc">${eur(mensile)}/mese accantonati, cumulati sull'anno (fino a ${eur(cum)})</div>
+  <div class="card" data-cat="bonus"><h3>📈 Accumulo previsto bonus mensili</h3><div class="desc">${eur(mensile)}/mese accantonati, cumulati sull'anno (fino a ${eur(cum)})</div>
     ${svgArea(bonusMens)}</div>
-  <div class="card"><h3>🛒 Spese settimanali</h3><div class="desc">Ultime settimane · budget ${eur(w.budgetSettimanale)}/sett.</div>
+  <div class="card" data-cat="spese"><h3>🛒 Spese settimanali</h3><div class="desc">Ultime settimane · budget ${eur(w.budgetSettimanale)}/sett.</div>
     ${wkData.length?svgBars(wkData,{budget:w.budgetSettimanale,color:'var(--s1)'}):'<div class="empty">Registra spese settimanali per vedere l\'andamento.</div>'}</div>
-  <div class="card"><h3>🧾 Spese settimanali per categoria</h3>
+  <div class="card" data-cat="spese"><h3>🧾 Spese settimanali per categoria</h3>
     ${cats.length?svgHBars(cats,{color:'var(--s2)'}):'<div class="empty">Nessuna spesa registrata.</div>'}</div>
-  <div class="card"><h3>🏠 Spese mensili fisse per voce</h3><div class="desc">Le voci di spesa del fabbisogno mensile</div>
+  <div class="card" data-cat="spese"><h3>🏠 Spese mensili fisse per voce</h3><div class="desc">Le voci di spesa del fabbisogno mensile</div>
     ${comp.length?svgHBars(comp,{color:'var(--s3)'}):'<div class="empty">Nessuna voce.</div>'}</div>`;
 }
 
@@ -1511,13 +1526,13 @@ function renderImpostazioni(el){
   el.innerHTML=`
   ${pageHead('Impostazioni','Dati P.IVA, percentuali fiscali, ordinario, budget e utenze')}
   <div class="settings-note">Queste impostazioni valgono <b>solo per l'utenza corrente</b> (${esc(state.utenti[currentUser].nome)} — una partita IVA). L'altra utenza è del tutto separata.</div>
-  <div class="card"><h3>🏢 Dati partita IVA</h3>
+  <div class="card" data-cat="info"><h3>🏢 Dati partita IVA</h3>
     <div class="form-grid">
       <div class="fld"><label>Denominazione / nome</label><input id="set_den" value="${esc(w.denominazione)}" placeholder="es. Arch. Luca"></div>
       <div class="fld"><label>Partita IVA</label><input id="set_piva" value="${esc(w.partitaIva)}" placeholder="es. 01234567890"></div>
     </div>
   </div>
-  <div class="card"><h3>⚙︎ Regime, anno, ordinario</h3>
+  <div class="card" data-cat="tax"><h3>⚙︎ Regime, anno, ordinario</h3>
     <div class="form-grid">
       <div class="fld"><label>Regime attivo</label><select id="set_regime"><option value="forfettario" ${w.regimeAttivo==='forfettario'?'selected':''}>Forfettario</option><option value="ordinario" ${w.regimeAttivo==='ordinario'?'selected':''}>Ordinario</option></select></div>
       <div class="fld"><label>Anno di lavoro</label><input id="set_anno" type="number" value="${w.anno}"></div>
@@ -1528,21 +1543,21 @@ function renderImpostazioni(el){
       <div class="fld"><label>Budget settimanale spese (€)</label><input id="set_budget" type="number" value="${w.budgetSettimanale}"></div>
     </div>
   </div>
-  <div class="card"><h3>🟦 Forfettario — percentuali (metodo unico sul reddito)</h3><div class="desc">Imposte = reddito (compenso×coefficiente) × % unica, che ingloba imposta sostitutiva e Inarcassa. Es. 30% ≈ sostitutiva 15% + Inarcassa.</div>
+  <div class="card" data-cat="tax"><h3>🟦 Forfettario — percentuali (metodo unico sul reddito)</h3><div class="desc">Imposte = reddito (compenso×coefficiente) × % unica, che ingloba imposta sostitutiva e Inarcassa. Es. 30% ≈ sostitutiva 15% + Inarcassa.</div>
     <div class="form-grid">
       <div class="fld"><label>Coefficiente redditività (%)</label><input id="for_coef" type="number" step="0.1" value="${f.coefficiente}"></div>
       <div class="fld"><label>% imposte sul reddito</label><input id="for_imp" type="number" step="0.1" value="${f.impostePerc}"></div>
       <div class="fld"><label>di cui imposta sostitutiva (%)</label><input id="for_sost" type="number" step="0.1" value="${f.aliquotaSostitutiva}"></div>
     </div>
   </div>
-  <div class="card"><h3>🟪 Ordinario — percentuali (anno prossimo)</h3><div class="desc">Voci separate; tutte confluiscono nel conto imposte</div>
+  <div class="card" data-cat="tax"><h3>🟪 Ordinario — percentuali (anno prossimo)</h3><div class="desc">Voci separate; tutte confluiscono nel conto imposte</div>
     <div class="form-grid">
       <div class="fld"><label>Imposte / IRPEF (%)</label><input id="ord_imp" type="number" step="0.1" value="${o.aliquotaImposte}"></div>
       <div class="fld"><label>Contributi (%)</label><input id="ord_con" type="number" step="0.1" value="${o.contributi}"></div>
       <div class="fld"><label>IVA (%)</label><input id="ord_iva" type="number" step="0.1" value="${o.iva}"></div>
     </div>
   </div>
-  <div class="card"><h3>🧾 Fiscalità ordinaria (dal 2027) — IRPEF e Inarcassa</h3>
+  <div class="card" data-cat="tax"><h3>🧾 Fiscalità ordinaria (dal 2027) — IRPEF e Inarcassa</h3>
     <div class="desc">Aliquote usate nella sezione <b>Deducibilità</b> per la stima dell'ordinario. Default correnti (architetto, Inarcassa) — <b>modificali secondo la tua situazione; sono una stima, non un calcolo definitivo</b>.</div>
     <div style="font-weight:600;font-size:13px;margin:4px 0 8px">Scaglioni IRPEF</div>
     <div id="scagList">${(fo.scaglioni||[]).map((s,i)=>scagRowHTML(s,i,(fo.scaglioni||[]).length)).join('')}</div>
@@ -1558,11 +1573,11 @@ function renderImpostazioni(el){
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:8px">Addizionali già impostate per residenza a <b>Torino</b> (valori 2026). Le addizionali sono calcolate a scaglioni progressivi sull'imponibile IRPEF. Se cambi residenza, aggiorna qui gli scaglioni.</div>
   </div>
-  <div class="card"><h3>🏷️ Deducibilità costi — % per tipologia</h3><div class="desc">Percentuale deducibile di default per tipologia (art. 54 TUIR): auto/carburante 20%, telefonia 80%, vitto e alloggio 75%, formazione e beni strumentali 100%. Proposta quando registri una spesa, sovrascrivibile sulla singola voce.<br><span style="color:var(--amber)">Attenzione:</span> esistono <b>limiti complessivi annui</b> che questo calcolo per-voce non applica automaticamente — vitto/alloggio entro il 2% dei compensi, rappresentanza entro l'1%, formazione entro 10.000 €, auto con tetto di 18.075,99 €. Tienine conto nella stima.</div>
+  <div class="card" data-cat="tax"><h3>🏷️ Deducibilità costi — % per tipologia</h3><div class="desc">Percentuale deducibile di default per tipologia (art. 54 TUIR): auto/carburante 20%, telefonia 80%, vitto e alloggio 75%, formazione e beni strumentali 100%. Proposta quando registri una spesa, sovrascrivibile sulla singola voce.<br><span style="color:var(--amber)">Attenzione:</span> esistono <b>limiti complessivi annui</b> che questo calcolo per-voce non applica automaticamente — vitto/alloggio entro il 2% dei compensi, rappresentanza entro l'1%, formazione entro 10.000 €, auto con tetto di 18.075,99 €. Tienine conto nella stima.</div>
     <div id="dedList">${ded.map((d,i)=>dedRowHTML(d,i)).join('')}</div>
     <button class="btn-sm btn-ghost" onclick="addDedRow()">+ Aggiungi tipologia</button>
   </div>
-  <div class="card"><h3>🔎 Accessibilità</h3><div class="desc">Dimensione del testo e dell'interfaccia. La scelta resta salvata su questo dispositivo.</div>
+  <div class="card" data-cat="info"><h3>🔎 Accessibilità</h3><div class="desc">Dimensione del testo e dell'interfaccia. La scelta resta salvata su questo dispositivo.</div>
     <div class="fs-ctrl" role="group" aria-label="Dimensione testo">
       <span style="font-size:12px;color:var(--muted);margin-right:4px">Testo</span>
       <button type="button" data-fs="0" aria-pressed="${fscale==='0'?'true':'false'}" onclick="setFontScale('0')" style="font-size:14px">A</button>
@@ -1570,11 +1585,11 @@ function renderImpostazioni(el){
       <button type="button" data-fs="2" aria-pressed="${fscale==='2'?'true':'false'}" onclick="setFontScale('2')" style="font-size:18px">A++</button>
     </div>
   </div>
-  <div class="card"><h3>🧩 Composizione fabbisogno mensile</h3><div class="desc">Le voci in cui si suddividono i ${eur(w.fabbisognoMensile)} mensili. Tipo "bonus" = va nei salvadanai; "→ settimanali" = alimenta il budget settimanale.</div>
+  <div class="card" data-cat="plan"><h3>🧩 Composizione fabbisogno mensile</h3><div class="desc">Le voci in cui si suddividono i ${eur(w.fabbisognoMensile)} mensili. Tipo "bonus" = va nei salvadanai; "→ settimanali" = alimenta il budget settimanale.</div>
     <div id="smList">${(w.speseMensili||[]).map(x=>smRowHTML(x)).join('')}</div>
     <button class="btn-sm btn-ghost" onclick="addSmRow()">+ Aggiungi voce</button>
   </div>
-  <div class="card"><h3>👤 Utenze di accesso</h3><div class="desc">Due utenze, una per ciascuna partita IVA.</div>
+  <div class="card" data-cat="info"><h3>👤 Utenze di accesso</h3><div class="desc">Due utenze, una per ciascuna partita IVA.</div>
     <div class="form-grid">
       <div class="fld"><label>Utenza 1 — nome</label><input id="u0_nome" value="${esc(state.utenti[0].nome)}"></div>
       <div class="fld"><label>Utenza 1 — PIN</label><div style="display:flex;gap:6px"><input id="u0_pin" type="password" inputmode="numeric" value="${esc(state.utenti[0].pin)}" style="flex:1"><button type="button" class="mini-btn" onclick="togglePwd('u0_pin')" aria-label="Mostra PIN">👁</button></div></div>
