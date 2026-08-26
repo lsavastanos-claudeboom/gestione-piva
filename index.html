@@ -359,7 +359,9 @@ function newWorkspace(){return{
   ordinario:{aliquotaImposte:27, contributi:14.5, iva:22},
   fiscoOrd:{
     scaglioni:[{fino:28000,perc:23},{fino:50000,perc:33},{fino:null,perc:43}],
-    addRegionale:1.73, addComunale:0.80,
+    addRegScag:[{fino:15000,perc:1.62},{fino:28000,perc:2.68},{fino:50000,perc:3.31},{fino:null,perc:3.33}],
+    addComScag:[{fino:28000,perc:0.80},{fino:50000,perc:1.10},{fino:null,perc:1.20}],
+    addRegionale:3.31, addComunale:1.10,
     inaSoggettivo:14.5, inaIntegrativo:4, inaMaternita:72, iva:22
   },
   deduzioni:[
@@ -547,11 +549,13 @@ function calcOrdinarioAnnuo(){
   const inaMat=+fo.inaMaternita||0;
   const imponibileIrpef=Math.max(0,redditoProf-inaSogg);
   const irpef=irpefLorda(imponibileIrpef,fo.scaglioni);
-  const addizionali=imponibileIrpef*((+fo.addRegionale||0)+(+fo.addComunale||0))/100;
+  const addReg=irpefLorda(imponibileIrpef,fo.addRegScag||[]);
+  const addCom=irpefLorda(imponibileIrpef,fo.addComScag||[]);
+  const addizionali=addReg+addCom;
   const totImposte=irpef+addizionali+inaSogg+inaMat;
   const netto=redditoProf-irpef-addizionali-inaSogg-inaMat;
   const aliqMedia=redditoProf?totImposte/redditoProf*100:0;
-  const aliqMarg=aliquotaMarginale(imponibileIrpef,fo.scaglioni)+(+fo.addRegionale||0)+(+fo.addComunale||0);
+  const aliqMarg=aliquotaMarginale(imponibileIrpef,fo.scaglioni)+aliquotaMarginale(imponibileIrpef,fo.addRegScag||[])+aliquotaMarginale(imponibileIrpef,fo.addComScag||[]);
   return {compensi,costiTotali,costiDeducibili,redditoProf,inaSogg,inaInteg,inaMat,imponibileIrpef,irpef,addizionali,totImposte,netto,aliqMedia,aliqMarg};
 }
 /* Risparmio fiscale stimato dei costi deducibili = deducibile × aliquota marginale (IRPEF+addizionali+soggettivo) */
@@ -1542,14 +1546,17 @@ function renderImpostazioni(el){
     <div class="desc">Aliquote usate nella sezione <b>Deducibilità</b> per la stima dell'ordinario. Default correnti (architetto, Inarcassa) — <b>modificali secondo la tua situazione; sono una stima, non un calcolo definitivo</b>.</div>
     <div style="font-weight:600;font-size:13px;margin:4px 0 8px">Scaglioni IRPEF</div>
     <div id="scagList">${(fo.scaglioni||[]).map((s,i)=>scagRowHTML(s,i,(fo.scaglioni||[]).length)).join('')}</div>
-    <div class="form-grid" style="margin-top:12px">
-      <div class="fld"><label>Addizionale regionale (%)</label><input id="fo_addreg" type="number" step="0.01" value="${fo.addRegionale}"></div>
-      <div class="fld"><label>Addizionale comunale (%)</label><input id="fo_addcom" type="number" step="0.01" value="${fo.addComunale}"></div>
+    <div style="font-weight:600;font-size:13px;margin:14px 0 8px">Addizionale regionale <span style="font-weight:400;color:var(--muted)">· Piemonte (a scaglioni)</span></div>
+    <div id="addRegList">${(fo.addRegScag||[]).map((s,i)=>scagRowHTML(s,i,(fo.addRegScag||[]).length)).join('')}</div>
+    <div style="font-weight:600;font-size:13px;margin:14px 0 8px">Addizionale comunale <span style="font-weight:400;color:var(--muted)">· Torino (a scaglioni)</span></div>
+    <div id="addComList">${(fo.addComScag||[]).map((s,i)=>scagRowHTML(s,i,(fo.addComScag||[]).length)).join('')}</div>
+    <div class="form-grid" style="margin-top:14px">
       <div class="fld"><label>Inarcassa soggettivo (%)</label><input id="fo_sogg" type="number" step="0.1" value="${fo.inaSoggettivo}"></div>
       <div class="fld"><label>Inarcassa integrativo (%)</label><input id="fo_integ" type="number" step="0.1" value="${fo.inaIntegrativo}"></div>
       <div class="fld"><label>Inarcassa maternità (€/anno)</label><input id="fo_mat" type="number" step="1" value="${fo.inaMaternita}"></div>
       <div class="fld"><label>IVA (%)</label><input id="fo_iva" type="number" step="0.1" value="${fo.iva}"></div>
     </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Addizionali già impostate per residenza a <b>Torino</b> (valori 2026). Le addizionali sono calcolate a scaglioni progressivi sull'imponibile IRPEF. Se cambi residenza, aggiorna qui gli scaglioni.</div>
   </div>
   <div class="card"><h3>🏷️ Deducibilità costi — % per tipologia</h3><div class="desc">Percentuale deducibile di default per tipologia (art. 54 TUIR): auto/carburante 20%, telefonia 80%, vitto e alloggio 75%, formazione e beni strumentali 100%. Proposta quando registri una spesa, sovrascrivibile sulla singola voce.<br><span style="color:var(--amber)">Attenzione:</span> esistono <b>limiti complessivi annui</b> che questo calcolo per-voce non applica automaticamente — vitto/alloggio entro il 2% dei compensi, rappresentanza entro l'1%, formazione entro 10.000 €, auto con tetto di 18.075,99 €. Tienine conto nella stima.</div>
     <div id="dedList">${ded.map((d,i)=>dedRowHTML(d,i)).join('')}</div>
@@ -1595,6 +1602,7 @@ function addSmRow(){const l=document.getElementById('smList');const d=document.c
 function scagRowHTML(s,i,n){s=s||{fino:null,perc:0};const last=i===n-1;
   return `<div class="alloc-row" data-scag><span style="flex:0 0 68px;font-size:12px;color:var(--muted)">${i===0?'fino a':'poi fino a'}</span><input type="number" data-role="fino" value="${s.fino==null?'':s.fino}" placeholder="${last?'oltre (∞)':'€'}" style="width:120px" ${last?'disabled':''}><span style="font-size:12px;color:var(--muted)">€</span><input type="number" step="0.1" data-role="perc" value="${s.perc}" style="width:78px"><span style="font-size:12px;color:var(--muted)">%</span></div>`;
 }
+function parseScagList(id){const rows=[...document.querySelectorAll('#'+id+' [data-scag]')];return rows.map((r,idx)=>{const last=idx===rows.length-1;const fv=r.querySelector('[data-role=fino]').value;const fino=(last||fv==='')?null:(+fv);return {fino,perc:+r.querySelector('[data-role=perc]').value||0};});}
 function dedRowHTML(d,i){d=d||{key:'',label:'',perc:100};
   return `<div class="alloc-row" data-ded data-key="${esc(d.key||'')}"><input data-role="label" value="${esc(d.label)}" style="flex:1" placeholder="Tipologia di costo"><input type="number" step="1" min="0" max="100" data-role="perc" value="${d.perc}" style="width:88px"><span style="font-size:12px;color:var(--muted)">%</span><button class="mini-btn del" onclick="this.closest('[data-ded]').remove()" aria-label="Rimuovi tipologia">×</button></div>`;
 }
@@ -1614,13 +1622,13 @@ function saveSettings(){
   const dfF=newWorkspace().forfettario,dfO=newWorkspace().ordinario;
   w.forfettario={coefficiente:+document.getElementById('for_coef').value||dfF.coefficiente,impostePerc:+document.getElementById('for_imp').value||dfF.impostePerc,aliquotaSostitutiva:+document.getElementById('for_sost').value||dfF.aliquotaSostitutiva};
   w.ordinario={aliquotaImposte:+document.getElementById('ord_imp').value||dfO.aliquotaImposte,contributi:+document.getElementById('ord_con').value||dfO.contributi,iva:+document.getElementById('ord_iva').value||dfO.iva};
-  const scagRows=[...document.querySelectorAll('#scagList [data-scag]')];
-  const scaglioni=scagRows.map((r,idx)=>{const last=idx===scagRows.length-1;const fv=r.querySelector('[data-role=fino]').value;const fino=(last||fv==='')?null:(+fv);return {fino,perc:+r.querySelector('[data-role=perc]').value||0};});
+  const scaglioni=parseScagList('scagList');const addRegScag=parseScagList('addRegList');const addComScag=parseScagList('addComList');
   const dfFo=newWorkspace().fiscoOrd;
   w.fiscoOrd={
     scaglioni:scaglioni.length?scaglioni:dfFo.scaglioni,
-    addRegionale:+document.getElementById('fo_addreg').value||0,
-    addComunale:+document.getElementById('fo_addcom').value||0,
+    addRegScag:addRegScag.length?addRegScag:dfFo.addRegScag,
+    addComScag:addComScag.length?addComScag:dfFo.addComScag,
+    addRegionale:dfFo.addRegionale, addComunale:dfFo.addComunale,
     inaSoggettivo:+document.getElementById('fo_sogg').value||0,
     inaIntegrativo:+document.getElementById('fo_integ').value||0,
     inaMaternita:+document.getElementById('fo_mat').value||0,
