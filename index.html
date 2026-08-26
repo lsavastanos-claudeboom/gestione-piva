@@ -630,6 +630,28 @@ function isMonthlyPot(id){return (W().speseMensili||[]).some(x=>x.tipo==='bonus'
 /* Spese dei bonus "oltre i 2500": prelievi dai monti iniziale/fatture (NON dai bonus mensili tipo1/tipo2, che rientrano nei 2500). Per mese di sostenimento (data). */
 function speseFuori2500PerMese(){const map={};prelieviAnno().forEach(p=>{if(isMonthlyPot(p.pot))return;const k=(p.data||'').slice(0,7);if(k)map[k]=(map[k]||0)+p.importo;});return map;}
 function speseFuori2500Mese(mese){return prelieviAnno().filter(p=>!isMonthlyPot(p.pot)&&(p.data||'').slice(0,7)===mese).reduce((s,p)=>s+p.importo,0);}
+/* Statistiche veloci per la home: spese dai bonus (monte + mensili), settimana e mese a confronto */
+function isoShiftDays(iso,n){const d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
+function prevMonthKey(mk){let[y,m]=mk.split('-').map(Number);m--;if(m<1){m=12;y--;}return y+'-'+String(m).padStart(2,'0');}
+function bonusQuick(){
+  const prel=prelieviAnno();
+  const wkMap={};prel.forEach(p=>{const k=weekKey(p.data);(wkMap[k]=wkMap[k]||{tot:0,sample:p.data}).tot+=p.importo;});
+  const wkKeys=Object.keys(wkMap).sort();
+  const curWk=weekKey(todayISO());const prevWk=weekKey(isoShiftDays(todayISO(),-7));
+  const curWkTot=(wkMap[curWk]||{tot:0}).tot;const prevWkTot=(wkMap[prevWk]||{tot:0}).tot;
+  const moMap={};prel.forEach(p=>{const k=(p.data||'').slice(0,7);if(k)moMap[k]=(moMap[k]||0)+p.importo;});
+  const cm=curMonthKey();const pm=prevMonthKey(cm);
+  const curMoTot=moMap[cm]||0;const prevMoTot=moMap[pm]||0;
+  const wkBars=wkKeys.slice(-8).map(k=>({label:weekRange(wkMap[k].sample).split('–')[0].trim(),value:wkMap[k].tot,color:k===curWk?'var(--s6)':'var(--smut)'}));
+  const monteCur=prel.filter(p=>!isMonthlyPot(p.pot)&&(p.data||'').slice(0,7)===cm).reduce((s,p)=>s+p.importo,0);
+  const mensiliCur=Math.max(0,curMoTot-monteCur);
+  return {curWkTot,prevWkTot,curMoTot,prevMoTot,wkBars,monteCur,mensiliCur,hasData:prel.length>0};
+}
+function deltaSpesa(cur,prev,label){
+  if(prev>0){const pc=Math.round((cur-prev)/prev*100);const col=cur>prev?'var(--red)':(cur<prev?'var(--green)':'var(--muted)');const ar=cur>prev?'▲':(cur<prev?'▼':'▬');return `<span style="color:${col};font-weight:600">${ar} ${pc>=0?'+':''}${pc}%</span> <span style="color:var(--muted)">${label}</span>`;}
+  if(cur>0)return `<span style="color:var(--muted)">nuovo · ${label}</span>`;
+  return `<span style="color:var(--muted)">— ${label}</span>`;
+}
 function contoLedger(){
   const w=W();const ci=w.contoImposte;const rows=[];
   rows.push({data:'',desc:'Saldo iniziale',importo:+ci.saldoIniziale||0,tipo:'init'});
@@ -742,8 +764,18 @@ function renderDashboard(el){
   const mbHome=monteSpeseStats();
   const mbHomeWkBars=mbHome.wkKeys.slice(-8).map(k=>({label:weekRange(mbHome.wkMap[k].sample).split('–')[0].trim(),value:mbHome.wkMap[k].tot,color:k===mbHome.curWk?'var(--s6)':'var(--smut)'}));
   const mbDeltaWk=mbHome.mediaWk>0?((mbHome.curWkTot-mbHome.mediaWk)/mbHome.mediaWk*100):null;
+  const q=bonusQuick();
   el.innerHTML=`
   ${pageHead('Dashboard','Panoramica dell\'anno '+w.anno+(w.denominazione?(' · '+esc(w.denominazione)):''))}
+  <div class="card" data-cat="bonus"><div class="card-head"><h3>💸 Spese dai bonus — colpo d'occhio</h3><button class="btn-sm desk-only" onclick="goTo('bonus')">Dettaglio</button></div>
+    <div class="desc">Utilizzi dei bonus (monte + mensili): settimana e mese a confronto, per capire subito l'andamento</div>
+    <div class="kpi-grid" style="margin:6px 0 12px">
+      <div class="kpi violet"><div class="lbl">📅 Questa settimana</div><div class="val" style="font-size:20px">${eur(q.curWkTot)}</div><div class="sub">${deltaSpesa(q.curWkTot,q.prevWkTot,'vs scorsa')}</div></div>
+      <div class="kpi violet"><div class="lbl">🗓️ Questo mese</div><div class="val" style="font-size:20px">${eur(q.curMoTot)}</div><div class="sub">${deltaSpesa(q.curMoTot,q.prevMoTot,'vs scorso')}</div></div>
+      <div class="kpi"><div class="lbl">Ripartizione del mese</div><div class="val" style="font-size:15px;line-height:1.4">🎁 monte ${eur(q.monteCur)}<br>📅 mensili ${eur(q.mensiliCur)}</div></div>
+    </div>
+    ${q.wkBars.some(b=>b.value>0)?`<div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:6px">📈 Ultime 8 settimane</div>${svgBars(q.wkBars,{color:'var(--s6)',h:120})}`:`<div class="empty" style="padding:14px">Nessun utilizzo dei bonus registrato di recente. Registra una spesa dai bonus per vedere l'andamento.</div>`}
+  </div>
   <div style="display:flex;align-items:center;gap:12px;margin:4px 0 8px"><h2 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin:0;white-space:nowrap">🛒 Spese</h2><div style="flex:1;height:1px;background:var(--line)"></div></div>
   <div class="card" data-cat="income"><div class="card-head"><h3>📊 Stato del mese — <span id="statoMeseLabel">${monthLabel(smSel.sel)}${dashMeseOffset===0?'':' (in anticipo)'}</span></h3>
     ${smSel.maxOff>0?`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--muted)">scorri i mesi</span><input type="range" id="statoMeseSlider" aria-label="Scorri i mesi successivi" min="0" max="${smSel.maxOff}" step="1" value="${dashMeseOffset}" oninput="setStatoMese(this.value)" style="width:130px;accent-color:var(--violet)"></div>`:''}</div>
