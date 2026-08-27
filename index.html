@@ -249,6 +249,17 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 .asst-send{background:var(--accent);color:#fff}
 @keyframes asstpulse{0%,100%{box-shadow:0 0 0 0 rgba(240,97,109,.55)}50%{box-shadow:0 0 0 9px rgba(240,97,109,0)}}
 @media(max-width:640px){.asst-sheet{right:0;left:0;bottom:0;width:100%;max-width:100%;height:82vh;border-radius:16px 16px 0 0}}
+.voice-sheet{position:fixed;z-index:61;right:20px;bottom:20px;width:380px;max-width:calc(100vw - 32px);height:56vh;max-height:520px;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;transform:translateY(24px);opacity:0;visibility:hidden;transition:transform .22s,opacity .22s,visibility .22s}
+.voice-sheet.open{transform:none;opacity:1;visibility:visible}
+.voice-x{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:26px;cursor:pointer;line-height:1}
+.voice-body{display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px;gap:16px;max-width:100%}
+.voice-mic{width:112px;height:112px;border-radius:50%;border:none;background:var(--s6);color:#fff;font-size:46px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 22px rgba(144,133,233,.4)}
+.voice-mic.rec{background:var(--red);animation:voicepulse 1.2s infinite}
+@keyframes voicepulse{0%,100%{box-shadow:0 0 0 0 rgba(240,97,109,.5)}50%{box-shadow:0 0 0 22px rgba(240,97,109,0)}}
+.voice-status{font-size:17px;font-weight:600;color:var(--txt)}
+.voice-transcript{font-size:15px;color:var(--accent);min-height:22px;font-style:italic;word-break:break-word}
+.voice-hint{font-size:12px;color:var(--muted)}
+@media(max-width:640px){.voice-sheet{right:0;left:0;bottom:0;width:100%;max-width:100%;height:64vh;border-radius:16px 16px 0 0}}
 .asst-choice-back{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}
 .asst-choice-back.open{display:block}
 .asst-choice{display:none;position:fixed;z-index:71;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px}
@@ -387,15 +398,15 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   <main class="main" id="view" tabindex="-1"></main>
 </div>
 <button id="fab" onclick="openQuickAdd()" title="Nuovo inserimento" aria-label="Nuovo inserimento">+</button>
-<button id="asstFab" onclick="openAssistant()" title="Assistente spese" aria-label="Assistente spese">💬</button>
-<div class="asst-backdrop" id="asstBackdrop" onclick="closeAssistant()"></div>
-<section class="asst-sheet" id="asstSheet" aria-label="Assistente spese" aria-hidden="true">
-  <div class="asst-head"><span>🤖 Assistente spese</span><button class="asst-x" onclick="closeAssistant()" aria-label="Chiudi">×</button></div>
-  <div class="asst-msgs" id="asstMsgs"></div>
-  <div class="asst-input">
-    <button id="asst_mic" class="asst-mic" onclick="assistantVoice()" aria-label="Parla">🎤</button>
-    <input id="asst_in" placeholder="Scrivi o parla una spesa…" enterkeyhint="send" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();assistantSend();}">
-    <button class="asst-send" onclick="assistantSend()" aria-label="Invia">➤</button>
+<button id="asstFab" onclick="openVoice()" title="Registra spesa a voce" aria-label="Registra spesa a voce">🎤</button>
+<div class="asst-backdrop" id="asstBackdrop" onclick="closeVoice()"></div>
+<section class="voice-sheet" id="voiceSheet" aria-label="Registra spesa a voce" aria-hidden="true">
+  <button class="voice-x" onclick="closeVoice()" aria-label="Chiudi">×</button>
+  <div class="voice-body">
+    <button class="voice-mic" id="voiceMic" onclick="voiceToggle()" aria-label="Parla">🎤</button>
+    <div class="voice-status" id="voiceStatus">Tocca il microfono e parla</div>
+    <div class="voice-transcript" id="voiceTranscript"></div>
+    <div class="voice-hint" id="voiceHint">Es. "45 euro di benzina" · "12 e 50 pranzo"</div>
   </div>
 </section>
 <div class="asst-choice-back" id="asstChoiceBack" onclick="assistantChoiceCancel()"></div>
@@ -1237,39 +1248,30 @@ function parseSpesaVocale(raw){
   desc=desc.replace(/\s{2,}/g,' ').replace(/^[\s,;:.\-]+|[\s,;:.\-]+$/g,'').trim();
   return {importo:(importo!=null?importo:0),descrizione:desc,categoria:desc?categorizza(desc):'',data};
 }
-/* ============ ASSISTENTE SPESE (chat locale: scrivi o parla) ============ */
-let assistantPending=null,assistantGreeted=false,assistantRec=null,assistantListening=false;
-function openAssistant(){
-  const sheet=document.getElementById('asstSheet');if(!sheet)return;
-  sheet.classList.add('open');document.getElementById('asstBackdrop').classList.add('open');sheet.setAttribute('aria-hidden','false');
-  if(!assistantGreeted){assistantGreeted=true;assistantMsg('bot','Ciao! 👋 Dimmi una spesa e la registro io. Puoi <b>scrivere</b> oppure toccare il <b>microfono 🎤</b> e parlare.<br>Es. <i>"ho speso 12 e 50 per il pranzo"</i> · <i>"45 euro di benzina ieri"</i>.');}
-  setTimeout(()=>{const i=document.getElementById('asst_in');if(i)i.focus();},250);
-}
-function closeAssistant(){const sheet=document.getElementById('asstSheet');if(!sheet)return;sheet.classList.remove('open');document.getElementById('asstBackdrop').classList.remove('open');sheet.setAttribute('aria-hidden','true');if(assistantListening&&assistantRec){try{assistantRec.stop();}catch(e){}}}
-function assistantMsg(who,html,actions){
-  const box=document.getElementById('asstMsgs');if(!box)return;
-  const d=document.createElement('div');d.className='asst-b '+who;d.innerHTML=html;
-  if(actions&&actions.length){const a=document.createElement('div');a.className='asst-acts';a.innerHTML=actions.map(x=>`<button type="button" onclick="${x.fn}">${x.label}</button>`).join('');d.appendChild(a);}
-  box.appendChild(d);box.scrollTop=box.scrollHeight;
-}
-function assistantSend(){const i=document.getElementById('asst_in');if(!i)return;const txt=(i.value||'').trim();if(!txt)return;i.value='';assistantMsg('user',esc(txt));handleAssistant(txt);}
+/* ============ ASSISTENTE SPESE A VOCE (microfono in-app) ============ */
+let voiceRec=null,voiceListening=false;
 function assistantRefresh(){if(view==='spese'||view==='dashboard'||view==='deducibili'||view==='stat')render();}
-function handleAssistant(txt){
-  const low=txt.toLowerCase();
-  if(/quanto ho speso|quanto spendo|totale spes|riepilogo spes/.test(low)){
-    const wk=weekKey(todayISO());const tot=speseAnno().filter(s=>weekKey(s.data)===wk).reduce((a,s)=>a+s.importo,0);
-    const moTot=speseAnno().filter(s=>(s.data||'').slice(0,7)===curMonthKey()).reduce((a,s)=>a+s.importo,0);
-    assistantMsg('bot',`Questa settimana hai speso <b>${eur(tot)}</b> · questo mese <b>${eur(moTot)}</b>.`);return;
-  }
-  if(assistantPending){
-    if(assistantPending.mode==='amount'){const m=low.match(/(\d{1,6})(?:[.,](\d{1,2}))?/);if(m){const imp=parseFloat(m[1]+(m[2]?('.'+(m[2].length===1?m[2]+'0':m[2])):''));const p=assistantPending;assistantPending=null;assistantRegister({importo:imp,descrizione:p.descrizione,categoria:p.categoria,data:p.data});return;}}
-    else if(assistantPending.mode==='desc'){const d=txt.trim();if(d){const p=assistantPending;assistantPending=null;assistantRegister({importo:p.importo,descrizione:d,categoria:categorizza(d),data:p.data});return;}}
-  }
+function voiceSet(transcript,status,hint){const t=document.getElementById('voiceTranscript'),s=document.getElementById('voiceStatus'),h=document.getElementById('voiceHint');if(t)t.textContent=(transcript||'');if(s&&status!=null)s.textContent=status;if(h&&hint!=null)h.innerHTML=hint;}
+function openVoice(){const sheet=document.getElementById('voiceSheet');if(!sheet)return;sheet.classList.add('open');document.getElementById('asstBackdrop').classList.add('open');sheet.setAttribute('aria-hidden','false');voiceSet('','Tocca il microfono e parla','Es. "45 euro di benzina" · "12 e 50 pranzo"');setTimeout(voiceStart,200);}
+function closeVoice(){const sheet=document.getElementById('voiceSheet');if(!sheet)return;sheet.classList.remove('open');document.getElementById('asstBackdrop').classList.remove('open');sheet.setAttribute('aria-hidden','true');if(voiceListening&&voiceRec){try{voiceRec.stop();}catch(e){}}voiceListening=false;const mic=document.getElementById('voiceMic');if(mic)mic.classList.remove('rec');}
+function voiceToggle(){if(voiceListening){try{voiceRec.stop();}catch(e){}return;}voiceStart();}
+function voiceStart(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const mic=document.getElementById('voiceMic');
+  if(!SR){voiceSet('','Microfono non supportato da questo browser','Usa il pulsante + per inserire la spesa a mano.');return;}
+  if(voiceListening)return;
+  try{voiceRec=new SR();}catch(e){voiceSet('','Non riesco ad avviare il microfono','Usa il pulsante + per inserire a mano.');return;}
+  voiceRec.lang='it-IT';voiceRec.interimResults=true;voiceRec.continuous=false;voiceRec.maxAlternatives=1;let heard='';
+  voiceRec.onstart=()=>{voiceListening=true;if(mic)mic.classList.add('rec');voiceSet('','Sto ascoltando… parla pure','Tocca di nuovo il microfono per fermare');};
+  voiceRec.onresult=(e)=>{let t='';for(let k=0;k<e.results.length;k++)t+=e.results[k][0].transcript;heard=t;voiceSet(t,'Sto ascoltando…',null);};
+  voiceRec.onerror=(e)=>{voiceListening=false;if(mic)mic.classList.remove('rec');if(e&&e.error==='not-allowed')voiceSet('','Permesso microfono negato','Attivalo nelle impostazioni del sito, oppure usa il +.');else voiceSet('','Non ho sentito nulla','Tocca 🎤 e riprova.');};
+  voiceRec.onend=()=>{voiceListening=false;if(mic)mic.classList.remove('rec');const v=(heard||'').trim();if(v)voiceHandle(v);else voiceSet('','Tocca il microfono e parla','Es. "45 euro di benzina" · "12 e 50 pranzo"');};
+  try{voiceRec.start();}catch(e){voiceListening=false;if(mic)mic.classList.remove('rec');}
+}
+function voiceHandle(txt){
   const r=parseSpesaVocale(txt);
-  if(r.importo>0&&r.descrizione){assistantPending=null;assistantRegister(r);return;}
-  if(r.importo>0&&!r.descrizione){assistantPending={mode:'desc',importo:r.importo,data:r.data};assistantMsg('bot',`Ok, <b>${eur(r.importo)}</b>. Per cosa era la spesa?`);return;}
-  if(!r.importo&&r.descrizione){assistantPending={mode:'amount',descrizione:r.descrizione,categoria:r.categoria,data:r.data};assistantMsg('bot',`Quanto hai speso per <b>${esc(r.descrizione)}</b>?`);return;}
-  assistantMsg('bot','Non sono riuscito a capire la spesa 🤔. Prova così: <i>"12 e 50 pranzo"</i> oppure <i>"45 euro benzina"</i>.');
+  if(r.importo>0&&r.descrizione){voiceSet('"'+txt+'"','Ho capito 👍',null);assistantRegister(r);return;}
+  if(r.importo>0&&!r.descrizione){voiceSet('"'+txt+'"','Manca la descrizione','Ripeti dicendo anche per cosa (es. "'+r.importo+' euro spesa supermercato"). Tocca 🎤.');return;}
+  voiceSet('"'+txt+'"','Non ho capito l\'importo','Ripeti con importo e cosa, es. "45 euro benzina". Tocca 🎤 per riprovare.');
 }
 let assistantChoiceData=null;
 function assistantRegister(r){
@@ -1284,39 +1286,15 @@ function assistantRegister(r){
   box.innerHTML=`<h4>Dove registro questa spesa?</h4><div class="sub"><b>${eur(assistantChoiceData.importo)}</b> · ${esc(assistantChoiceData.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}</div>${opts}<button type="button" class="cancel" onclick="assistantChoiceCancel()">Annulla</button>`;
   box.classList.add('open');document.getElementById('asstChoiceBack').classList.add('open');
 }
-function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;assistantMsg('bot','Ok, non ho registrato nulla. Dimmi pure un\'altra spesa.');}
+function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;voiceSet('','Registrazione annullata','Tocca 🎤 per registrare un\'altra spesa.');}
 function assistantChoose(kind,pot){
   const r=assistantChoiceData;if(!r){assistantChoiceCancel();return;}
   document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;
-  const w=W();const id=uid();const data=r.data;const cat=r.categoria;const quando=data===todayISO()?'oggi':fmtDate(data);
-  if(kind==='spesa'){
-    const tipoCosto=tipoCostoDaCategoria(cat);
-    w.spese.push({id,data,descrizione:r.descrizione,categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});
-    save();assistantRefresh();
-    assistantMsg('bot',`✅ Registrata in <b>Spese settimanali</b>: <b>${eur(r.importo)}</b> · ${esc(r.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}`,[
-      {label:'↩︎ Annulla',fn:`assistantUndo('spesa','${id}')`},{label:'✏️ Modifica',fn:`closeAssistant();openSpesa('${id}')`}]);
-  }else{
-    const mese=isMonthlyPot(pot)?curBonusMese():(data||'').slice(0,7);
-    w.prelieviBonus.push({id,data,pot,mese,importo:r.importo,note:r.descrizione,categoria:cat});
-    save();assistantRefresh();
-    const nome=(bonusPots().find(p=>p.id===pot)||{nome:'Bonus'}).nome;
-    assistantMsg('bot',`✅ Registrata come utilizzo di <b>${esc(nome)}</b>: <b>${eur(r.importo)}</b> · ${esc(r.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}`,[
-      {label:'↩︎ Annulla',fn:`assistantUndo('bonus','${id}')`},{label:'✏️ Modifica',fn:`closeAssistant();openPrelievoBonus(null,null,'${id}')`}]);
-  }
-}
-function assistantUndo(kind,id){const w=W();const arr=kind==='bonus'?w.prelieviBonus:w.spese;const i=arr.findIndex(s=>s.id===id);if(i>=0){arr.splice(i,1);save();assistantRefresh();assistantMsg('bot','Ho annullato quella spesa. 👍');}}
-function assistantVoice(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  const mic=document.getElementById('asst_mic'),input=document.getElementById('asst_in');
-  if(!SR){assistantMsg('bot','Il microfono vocale non è supportato da questo browser 😕. Puoi comunque scrivere qui sotto (oppure usare la dettatura della tastiera).');return;}
-  if(assistantListening){try{assistantRec.stop();}catch(e){}return;}
-  try{assistantRec=new SR();}catch(e){assistantMsg('bot','Non riesco ad avviare il microfono. Scrivi pure la spesa.');return;}
-  assistantRec.lang='it-IT';assistantRec.interimResults=true;assistantRec.continuous=false;assistantRec.maxAlternatives=1;
-  assistantRec.onstart=()=>{assistantListening=true;if(mic)mic.classList.add('rec');if(input)input.placeholder='Sto ascoltando… parla pure';};
-  assistantRec.onresult=(e)=>{let t='';for(let k=0;k<e.results.length;k++)t+=e.results[k][0].transcript;if(input)input.value=t;};
-  assistantRec.onerror=(e)=>{assistantListening=false;if(mic)mic.classList.remove('rec');if(input)input.placeholder='Scrivi o parla una spesa…';if(e&&e.error==='not-allowed')assistantMsg('bot','Permesso microfono negato. Attivalo dalle impostazioni del sito, oppure scrivi la spesa.');};
-  assistantRec.onend=()=>{assistantListening=false;if(mic)mic.classList.remove('rec');if(input)input.placeholder='Scrivi o parla una spesa…';const v=(input&&input.value||'').trim();if(v)assistantSend();};
-  try{assistantRec.start();}catch(e){assistantListening=false;if(mic)mic.classList.remove('rec');}
+  const w=W();const id=uid();const data=r.data;const cat=r.categoria;let dove;
+  if(kind==='spesa'){const tipoCosto=tipoCostoDaCategoria(cat);w.spese.push({id,data,descrizione:r.descrizione,categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});dove='Spese settimanali';}
+  else{const mese=isMonthlyPot(pot)?curBonusMese():(data||'').slice(0,7);w.prelieviBonus.push({id,data,pot,mese,importo:r.importo,note:r.descrizione,categoria:cat});dove=(bonusPots().find(p=>p.id===pot)||{nome:'Bonus'}).nome;}
+  save();assistantRefresh();closeVoice();
+  showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' → '+dove,()=>{const arr=(kind==='bonus')?W().prelieviBonus:W().spese;const i=arr.findIndex(s=>s.id===id);if(i>=0){arr.splice(i,1);save();assistantRefresh();toast('Annullata');}});
 }
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const editEl=document.getElementById('s_edit');const editId=editEl?editEl.value:'';const w=W();
