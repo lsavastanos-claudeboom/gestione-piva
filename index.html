@@ -1151,6 +1151,14 @@ function renderDeducibili(el){
 function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId):null;document.getElementById('modal').innerHTML=`
   <div class="modal-head"><h3>${ex?'Modifica spesa':'Nuova spesa'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
   <div class="modal-body"><input type="hidden" id="s_edit" value="${ex?esc(editId):''}"><div class="form-grid">
+    ${ex?'':`<div class="fld" style="grid-column:1/-1;background:color-mix(in srgb,var(--s6) 7%,var(--panel2));border:1px solid var(--line);border-radius:10px;padding:12px">
+      <label style="display:flex;align-items:center;gap:6px">🎙️ Detta o scrivi la spesa <span style="color:var(--muted);font-weight:400">· es. "12 e 50 pranzo" o "45 euro benzina ieri"</span></label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input id="s_voce" placeholder="Tocca il campo, poi il microfono 🎤 della tastiera" style="flex:1" enterkeyhint="done" onkeydown="if(event.key==='Enter'){event.preventDefault();compilaDaVoce();}">
+        <button type="button" class="btn-sm" style="flex:0 0 auto" onclick="compilaDaVoce()">Compila</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">Riempie da solo importo, descrizione e categoria — poi controlli e salvi.</div>
+    </div>`}
     <div class="fld"><label>Data</label><input id="s_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
     <div class="fld"><label>Importo (€)</label><input id="s_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
     <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="es. benzina, pranzo, cancelleria…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('s_desc','s_cat');autoTipoFill()"></div>
@@ -1167,6 +1175,35 @@ function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId
   document.getElementById('overlay').classList.add('show');}
 function setDedFromTipo(){const sel=document.getElementById('s_tipo'),ded=document.getElementById('s_ded');if(!sel)return;sel.dataset.manual='1';if(ded){ded.value=dedPercDefaultTipo(sel.value);ded.dataset.manual='';}}
 function autoTipoFill(){const cat=document.getElementById('s_cat'),sel=document.getElementById('s_tipo'),ded=document.getElementById('s_ded');if(!cat||!sel||sel.dataset.manual==='1')return;const t=tipoCostoDaCategoria(cat.value);sel.value=t;if(ded&&ded.dataset.manual!=='1')ded.value=dedPercDefaultTipo(t);}
+/* Interpreta una frase dettata/scritta -> importo, descrizione, categoria, data */
+function parseSpesaVocale(raw){
+  const orig=(raw||'').trim();if(!orig)return{importo:0,descrizione:'',categoria:'',data:todayISO()};
+  const t=' '+orig.toLowerCase()+' ';
+  let data=todayISO();
+  if(/\bl['’ ]?altro\s+ieri\b/.test(t))data=isoShiftDays(todayISO(),-2);
+  else if(/\bieri\b/.test(t))data=isoShiftDays(todayISO(),-1);
+  let importo=null,amtStr=null,m;
+  if((m=t.match(/(\d{1,6})\s*(?:euro|eur|€)?\s*e\s+(\d{1,2})\s*(?:centesimi|cent)?\b/))){const c=m[2].length===1?('0'+m[2]):m[2];importo=parseFloat(m[1]+'.'+c);amtStr=m[0];}
+  if(importo===null&&(m=t.match(/(\d{1,6})[.,](\d{1,2})\s*(?:euro|eur|€)?/))){const c=m[2].length===1?(m[2]+'0'):m[2];importo=parseFloat(m[1]+'.'+c);amtStr=m[0];}
+  if(importo===null&&(m=t.match(/(\d{1,6})\s*(?:euro|eur|€)/))){importo=parseFloat(m[1]);amtStr=m[0];}
+  if(importo===null&&(m=t.match(/\d{1,6}/))){importo=parseFloat(m[0]);amtStr=m[0];}
+  let desc=orig;
+  if(amtStr)desc=desc.replace(new RegExp(amtStr.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i'),' ');
+  desc=desc.replace(/€/g,' ').replace(/\b(euro|eur|centesimi|cent)\b/gi,' ');
+  desc=desc.replace(/\b(l['’ ]?altro\s+ieri|ieri|oggi)\b/gi,' ');
+  desc=desc.replace(/^\s*(ho\s+speso|speso|ho\s+pagato|pagato|spesa\s+(?:di|per)?|comprato|acquistato|preso|per|di)\b/i,' ');
+  desc=desc.replace(/\s{2,}/g,' ').replace(/^[\s,;:.\-]+|[\s,;:.\-]+$/g,'').trim();
+  return {importo:(importo!=null?importo:0),descrizione:desc,categoria:desc?categorizza(desc):'',data};
+}
+function compilaDaVoce(){
+  const el=document.getElementById('s_voce');if(!el)return;const r=parseSpesaVocale(el.value);
+  if(r.importo>0)document.getElementById('s_imp').value=r.importo;
+  if(r.descrizione)document.getElementById('s_desc').value=r.descrizione;
+  const cat=document.getElementById('s_cat');if(cat&&r.categoria){cat.value=r.categoria;cat.dataset.manual='';}
+  if(r.data)document.getElementById('s_data').value=r.data;
+  autoTipoFill();
+  toast(r.importo>0?'Compilato — controlla e salva':'Non ho trovato un importo: completa a mano',r.importo<=0);
+}
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const editEl=document.getElementById('s_edit');const editId=editEl?editEl.value:'';const w=W();
   const data=document.getElementById('s_data').value||todayISO(),descrizione=document.getElementById('s_desc').value.trim();const categoria=document.getElementById('s_cat').value.trim()||categorizza(descrizione);
