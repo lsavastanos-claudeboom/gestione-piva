@@ -249,6 +249,17 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 .asst-send{background:var(--accent);color:#fff}
 @keyframes asstpulse{0%,100%{box-shadow:0 0 0 0 rgba(240,97,109,.55)}50%{box-shadow:0 0 0 9px rgba(240,97,109,0)}}
 @media(max-width:640px){.asst-sheet{right:0;left:0;bottom:0;width:100%;max-width:100%;height:82vh;border-radius:16px 16px 0 0}}
+.asst-choice-back{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}
+.asst-choice-back.open{display:block}
+.asst-choice{display:none;position:fixed;z-index:71;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px}
+.asst-choice.open{display:block}
+.asst-choice h4{font-size:15px;margin-bottom:4px}
+.asst-choice .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+.asst-choice .opt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:13px 14px;margin-bottom:9px;border-radius:11px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:14px;font-weight:600;cursor:pointer}
+.asst-choice .opt:hover{border-color:var(--accent)}
+.asst-choice .opt .ico{font-size:20px}
+.asst-choice .opt .cap{font-weight:400;color:var(--muted);font-size:11px;display:block;margin-top:1px}
+.asst-choice .cancel{width:100%;text-align:center;padding:9px;border:none;background:none;color:var(--muted);cursor:pointer;font-size:13px;margin-top:2px}
 @media(max-width:900px) and (min-width:641px){.sidebar{width:60px;padding:14px 6px}.brand b,.brand span,.nav button span:not(.ic),.side-foot .txt{display:none}.main{padding:18px}}
 @media(max-width:640px){
   html,body{max-width:100%}
@@ -387,6 +398,8 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
     <button class="asst-send" onclick="assistantSend()" aria-label="Invia">➤</button>
   </div>
 </section>
+<div class="asst-choice-back" id="asstChoiceBack" onclick="assistantChoiceCancel()"></div>
+<div class="asst-choice" id="asstChoice" role="dialog" aria-modal="true" aria-label="Dove registro la spesa"></div>
 <nav class="bottomnav" id="bottomnav" aria-label="Navigazione rapida">
   <button data-v="dashboard" class="active" onclick="goTo('dashboard')"><span class="bic">◧</span><span class="blbl">Home</span></button>
   <button data-v="spese" onclick="goTo('spese')"><span class="bic">🛒</span><span class="blbl">Spese</span></button>
@@ -1258,19 +1271,40 @@ function handleAssistant(txt){
   if(!r.importo&&r.descrizione){assistantPending={mode:'amount',descrizione:r.descrizione,categoria:r.categoria,data:r.data};assistantMsg('bot',`Quanto hai speso per <b>${esc(r.descrizione)}</b>?`);return;}
   assistantMsg('bot','Non sono riuscito a capire la spesa 🤔. Prova così: <i>"12 e 50 pranzo"</i> oppure <i>"45 euro benzina"</i>.');
 }
+let assistantChoiceData=null;
 function assistantRegister(r){
-  const w=W();const id=uid();const data=r.data||todayISO();
-  const cat=r.categoria||categorizza(r.descrizione||'');
-  const tipoCosto=tipoCostoDaCategoria(cat);
-  w.spese.push({id,data,descrizione:r.descrizione||'',categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});
-  save();assistantRefresh();
-  const quando=data===todayISO()?'oggi':fmtDate(data);
-  assistantMsg('bot',`✅ Registrata in Spese: <b>${eur(r.importo)}</b> · ${esc(r.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}`,[
-    {label:'↩︎ Annulla',fn:`assistantUndo('${id}')`},
-    {label:'✏️ Modifica',fn:`closeAssistant();openSpesa('${id}')`}
-  ]);
+  // chiede prima dove registrarla: spesa settimanale o dal bonus
+  assistantChoiceData={importo:r.importo,descrizione:r.descrizione||'',categoria:r.categoria||categorizza(r.descrizione||''),data:r.data||todayISO()};
+  const cat=assistantChoiceData.categoria;const quando=assistantChoiceData.data===todayISO()?'oggi':fmtDate(assistantChoiceData.data);
+  const pots=bonusPots().filter(p=>p.id!=='fatture');
+  let opts=`<button type="button" class="opt" onclick="assistantChoose('spesa','')"><span class="ico">🛒</span><span>Spesa settimanale<span class="cap">rientra nel budget delle spese</span></span></button>`;
+  opts+=`<button type="button" class="opt" onclick="assistantChoose('bonus','fatture')"><span class="ico">🎁</span><span>Dal monte bonus<span class="cap">prelievo dal monte accumulato</span></span></button>`;
+  opts+=pots.map(p=>`<button type="button" class="opt" onclick="assistantChoose('bonus','${p.id}')"><span class="ico">📅</span><span>${esc(p.nome)}<span class="cap">bonus mensile</span></span></button>`).join('');
+  const box=document.getElementById('asstChoice');
+  box.innerHTML=`<h4>Dove registro questa spesa?</h4><div class="sub"><b>${eur(assistantChoiceData.importo)}</b> · ${esc(assistantChoiceData.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}</div>${opts}<button type="button" class="cancel" onclick="assistantChoiceCancel()">Annulla</button>`;
+  box.classList.add('open');document.getElementById('asstChoiceBack').classList.add('open');
 }
-function assistantUndo(id){const w=W();const i=w.spese.findIndex(s=>s.id===id);if(i>=0){w.spese.splice(i,1);save();assistantRefresh();assistantMsg('bot','Ho annullato quella spesa. 👍');}}
+function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;assistantMsg('bot','Ok, non ho registrato nulla. Dimmi pure un\'altra spesa.');}
+function assistantChoose(kind,pot){
+  const r=assistantChoiceData;if(!r){assistantChoiceCancel();return;}
+  document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;
+  const w=W();const id=uid();const data=r.data;const cat=r.categoria;const quando=data===todayISO()?'oggi':fmtDate(data);
+  if(kind==='spesa'){
+    const tipoCosto=tipoCostoDaCategoria(cat);
+    w.spese.push({id,data,descrizione:r.descrizione,categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});
+    save();assistantRefresh();
+    assistantMsg('bot',`✅ Registrata in <b>Spese settimanali</b>: <b>${eur(r.importo)}</b> · ${esc(r.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}`,[
+      {label:'↩︎ Annulla',fn:`assistantUndo('spesa','${id}')`},{label:'✏️ Modifica',fn:`closeAssistant();openSpesa('${id}')`}]);
+  }else{
+    const mese=isMonthlyPot(pot)?curBonusMese():(data||'').slice(0,7);
+    w.prelieviBonus.push({id,data,pot,mese,importo:r.importo,note:r.descrizione,categoria:cat});
+    save();assistantRefresh();
+    const nome=(bonusPots().find(p=>p.id===pot)||{nome:'Bonus'}).nome;
+    assistantMsg('bot',`✅ Registrata come utilizzo di <b>${esc(nome)}</b>: <b>${eur(r.importo)}</b> · ${esc(r.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}`,[
+      {label:'↩︎ Annulla',fn:`assistantUndo('bonus','${id}')`},{label:'✏️ Modifica',fn:`closeAssistant();openPrelievoBonus(null,null,'${id}')`}]);
+  }
+}
+function assistantUndo(kind,id){const w=W();const arr=kind==='bonus'?w.prelieviBonus:w.spese;const i=arr.findIndex(s=>s.id===id);if(i>=0){arr.splice(i,1);save();assistantRefresh();assistantMsg('bot','Ho annullato quella spesa. 👍');}}
 function assistantVoice(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   const mic=document.getElementById('asst_mic'),input=document.getElementById('asst_in');
