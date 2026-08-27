@@ -225,6 +225,30 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 .bottomnav{display:none}
 #fab:hover{background:var(--accent2)}
 @media(min-width:900px){#fab{display:none}}
+#asstFab{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:var(--s6);color:#fff;border:none;font-size:24px;line-height:1;box-shadow:var(--shadow);z-index:46;display:flex;align-items:center;justify-content:center}
+#asstFab:hover{filter:brightness(1.08)}
+@media(max-width:899px){#asstFab{bottom:86px}}
+@media(max-width:640px){#asstFab{bottom:calc(140px + env(safe-area-inset-bottom));right:16px}}
+.asst-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+.asst-backdrop.open{opacity:1;visibility:visible;display:block}
+.asst-sheet{position:fixed;z-index:61;right:20px;bottom:20px;width:400px;max-width:calc(100vw - 32px);height:70vh;max-height:620px;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;transform:translateY(24px);opacity:0;visibility:hidden;transition:transform .22s,opacity .22s,visibility .22s}
+.asst-sheet.open{transform:none;opacity:1;visibility:visible}
+.asst-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:700}
+.asst-x{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1}
+.asst-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.asst-b{max-width:86%;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.45;word-wrap:break-word}
+.asst-b.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.asst-b.bot{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.asst-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.asst-acts button{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--txt);cursor:pointer}
+.asst-input{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line);align-items:center}
+.asst-input input{flex:1;min-width:0;padding:11px 14px;border-radius:22px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:15px}
+.asst-mic,.asst-send{flex:0 0 auto;width:42px;height:42px;border-radius:50%;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.asst-mic{background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+.asst-mic.rec{background:var(--red);color:#fff;animation:asstpulse 1s infinite}
+.asst-send{background:var(--accent);color:#fff}
+@keyframes asstpulse{0%,100%{box-shadow:0 0 0 0 rgba(240,97,109,.55)}50%{box-shadow:0 0 0 9px rgba(240,97,109,0)}}
+@media(max-width:640px){.asst-sheet{right:0;left:0;bottom:0;width:100%;max-width:100%;height:82vh;border-radius:16px 16px 0 0}}
 @media(max-width:900px) and (min-width:641px){.sidebar{width:60px;padding:14px 6px}.brand b,.brand span,.nav button span:not(.ic),.side-foot .txt{display:none}.main{padding:18px}}
 @media(max-width:640px){
   html,body{max-width:100%}
@@ -352,6 +376,17 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   <main class="main" id="view" tabindex="-1"></main>
 </div>
 <button id="fab" onclick="openQuickAdd()" title="Nuovo inserimento" aria-label="Nuovo inserimento">+</button>
+<button id="asstFab" onclick="openAssistant()" title="Assistente spese" aria-label="Assistente spese">💬</button>
+<div class="asst-backdrop" id="asstBackdrop" onclick="closeAssistant()"></div>
+<section class="asst-sheet" id="asstSheet" aria-label="Assistente spese" aria-hidden="true">
+  <div class="asst-head"><span>🤖 Assistente spese</span><button class="asst-x" onclick="closeAssistant()" aria-label="Chiudi">×</button></div>
+  <div class="asst-msgs" id="asstMsgs"></div>
+  <div class="asst-input">
+    <button id="asst_mic" class="asst-mic" onclick="assistantVoice()" aria-label="Parla">🎤</button>
+    <input id="asst_in" placeholder="Scrivi o parla una spesa…" enterkeyhint="send" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();assistantSend();}">
+    <button class="asst-send" onclick="assistantSend()" aria-label="Invia">➤</button>
+  </div>
+</section>
 <nav class="bottomnav" id="bottomnav" aria-label="Navigazione rapida">
   <button data-v="dashboard" class="active" onclick="goTo('dashboard')"><span class="bic">◧</span><span class="blbl">Home</span></button>
   <button data-v="spese" onclick="goTo('spese')"><span class="bic">🛒</span><span class="blbl">Spese</span></button>
@@ -1151,14 +1186,6 @@ function renderDeducibili(el){
 function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId):null;document.getElementById('modal').innerHTML=`
   <div class="modal-head"><h3>${ex?'Modifica spesa':'Nuova spesa'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
   <div class="modal-body"><input type="hidden" id="s_edit" value="${ex?esc(editId):''}"><div class="form-grid">
-    ${ex?'':`<div class="fld" style="grid-column:1/-1;background:color-mix(in srgb,var(--s6) 7%,var(--panel2));border:1px solid var(--line);border-radius:10px;padding:12px">
-      <label style="display:flex;align-items:center;gap:6px">🎙️ Detta o scrivi la spesa <span style="color:var(--muted);font-weight:400">· es. "12 e 50 pranzo" o "45 euro benzina ieri"</span></label>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <input id="s_voce" placeholder="Tocca il campo, poi il microfono 🎤 della tastiera" style="flex:1" enterkeyhint="done" onkeydown="if(event.key==='Enter'){event.preventDefault();compilaDaVoce();}">
-        <button type="button" class="btn-sm" style="flex:0 0 auto" onclick="compilaDaVoce()">Compila</button>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:6px">Riempie da solo importo, descrizione e categoria — poi controlli e salvi.</div>
-    </div>`}
     <div class="fld"><label>Data</label><input id="s_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
     <div class="fld"><label>Importo (€)</label><input id="s_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
     <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="es. benzina, pranzo, cancelleria…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('s_desc','s_cat');autoTipoFill()"></div>
@@ -1192,17 +1219,70 @@ function parseSpesaVocale(raw){
   desc=desc.replace(/€/g,' ').replace(/\b(euro|eur|centesimi|cent)\b/gi,' ');
   desc=desc.replace(/\b(l['’ ]?altro\s+ieri|ieri|oggi)\b/gi,' ');
   desc=desc.replace(/^\s*(ho\s+speso|speso|ho\s+pagato|pagato|spesa\s+(?:di|per)?|comprato|acquistato|preso|per|di)\b/i,' ');
+  desc=desc.replace(/^\s*(per|di|del|dello|della|dei|degli|delle|al|allo|alla|ai|agli|alle|in)\s+/i,' ');
+  desc=desc.replace(/^\s*(il|lo|la|i|gli|le|un|uno|una|un')\s+/i,' ');
   desc=desc.replace(/\s{2,}/g,' ').replace(/^[\s,;:.\-]+|[\s,;:.\-]+$/g,'').trim();
   return {importo:(importo!=null?importo:0),descrizione:desc,categoria:desc?categorizza(desc):'',data};
 }
-function compilaDaVoce(){
-  const el=document.getElementById('s_voce');if(!el)return;const r=parseSpesaVocale(el.value);
-  if(r.importo>0)document.getElementById('s_imp').value=r.importo;
-  if(r.descrizione)document.getElementById('s_desc').value=r.descrizione;
-  const cat=document.getElementById('s_cat');if(cat&&r.categoria){cat.value=r.categoria;cat.dataset.manual='';}
-  if(r.data)document.getElementById('s_data').value=r.data;
-  autoTipoFill();
-  toast(r.importo>0?'Compilato — controlla e salva':'Non ho trovato un importo: completa a mano',r.importo<=0);
+/* ============ ASSISTENTE SPESE (chat locale: scrivi o parla) ============ */
+let assistantPending=null,assistantGreeted=false,assistantRec=null,assistantListening=false;
+function openAssistant(){
+  const sheet=document.getElementById('asstSheet');if(!sheet)return;
+  sheet.classList.add('open');document.getElementById('asstBackdrop').classList.add('open');sheet.setAttribute('aria-hidden','false');
+  if(!assistantGreeted){assistantGreeted=true;assistantMsg('bot','Ciao! 👋 Dimmi una spesa e la registro io. Puoi <b>scrivere</b> oppure toccare il <b>microfono 🎤</b> e parlare.<br>Es. <i>"ho speso 12 e 50 per il pranzo"</i> · <i>"45 euro di benzina ieri"</i>.');}
+  setTimeout(()=>{const i=document.getElementById('asst_in');if(i)i.focus();},250);
+}
+function closeAssistant(){const sheet=document.getElementById('asstSheet');if(!sheet)return;sheet.classList.remove('open');document.getElementById('asstBackdrop').classList.remove('open');sheet.setAttribute('aria-hidden','true');if(assistantListening&&assistantRec){try{assistantRec.stop();}catch(e){}}}
+function assistantMsg(who,html,actions){
+  const box=document.getElementById('asstMsgs');if(!box)return;
+  const d=document.createElement('div');d.className='asst-b '+who;d.innerHTML=html;
+  if(actions&&actions.length){const a=document.createElement('div');a.className='asst-acts';a.innerHTML=actions.map(x=>`<button type="button" onclick="${x.fn}">${x.label}</button>`).join('');d.appendChild(a);}
+  box.appendChild(d);box.scrollTop=box.scrollHeight;
+}
+function assistantSend(){const i=document.getElementById('asst_in');if(!i)return;const txt=(i.value||'').trim();if(!txt)return;i.value='';assistantMsg('user',esc(txt));handleAssistant(txt);}
+function assistantRefresh(){if(view==='spese'||view==='dashboard'||view==='deducibili'||view==='stat')render();}
+function handleAssistant(txt){
+  const low=txt.toLowerCase();
+  if(/quanto ho speso|quanto spendo|totale spes|riepilogo spes/.test(low)){
+    const wk=weekKey(todayISO());const tot=speseAnno().filter(s=>weekKey(s.data)===wk).reduce((a,s)=>a+s.importo,0);
+    const moTot=speseAnno().filter(s=>(s.data||'').slice(0,7)===curMonthKey()).reduce((a,s)=>a+s.importo,0);
+    assistantMsg('bot',`Questa settimana hai speso <b>${eur(tot)}</b> · questo mese <b>${eur(moTot)}</b>.`);return;
+  }
+  if(assistantPending){
+    if(assistantPending.mode==='amount'){const m=low.match(/(\d{1,6})(?:[.,](\d{1,2}))?/);if(m){const imp=parseFloat(m[1]+(m[2]?('.'+(m[2].length===1?m[2]+'0':m[2])):''));const p=assistantPending;assistantPending=null;assistantRegister({importo:imp,descrizione:p.descrizione,categoria:p.categoria,data:p.data});return;}}
+    else if(assistantPending.mode==='desc'){const d=txt.trim();if(d){const p=assistantPending;assistantPending=null;assistantRegister({importo:p.importo,descrizione:d,categoria:categorizza(d),data:p.data});return;}}
+  }
+  const r=parseSpesaVocale(txt);
+  if(r.importo>0&&r.descrizione){assistantPending=null;assistantRegister(r);return;}
+  if(r.importo>0&&!r.descrizione){assistantPending={mode:'desc',importo:r.importo,data:r.data};assistantMsg('bot',`Ok, <b>${eur(r.importo)}</b>. Per cosa era la spesa?`);return;}
+  if(!r.importo&&r.descrizione){assistantPending={mode:'amount',descrizione:r.descrizione,categoria:r.categoria,data:r.data};assistantMsg('bot',`Quanto hai speso per <b>${esc(r.descrizione)}</b>?`);return;}
+  assistantMsg('bot','Non sono riuscito a capire la spesa 🤔. Prova così: <i>"12 e 50 pranzo"</i> oppure <i>"45 euro benzina"</i>.');
+}
+function assistantRegister(r){
+  const w=W();const id=uid();const data=r.data||todayISO();
+  const cat=r.categoria||categorizza(r.descrizione||'');
+  const tipoCosto=tipoCostoDaCategoria(cat);
+  w.spese.push({id,data,descrizione:r.descrizione||'',categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});
+  save();assistantRefresh();
+  const quando=data===todayISO()?'oggi':fmtDate(data);
+  assistantMsg('bot',`✅ Registrata in Spese: <b>${eur(r.importo)}</b> · ${esc(r.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}`,[
+    {label:'↩︎ Annulla',fn:`assistantUndo('${id}')`},
+    {label:'✏️ Modifica',fn:`closeAssistant();openSpesa('${id}')`}
+  ]);
+}
+function assistantUndo(id){const w=W();const i=w.spese.findIndex(s=>s.id===id);if(i>=0){w.spese.splice(i,1);save();assistantRefresh();assistantMsg('bot','Ho annullato quella spesa. 👍');}}
+function assistantVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const mic=document.getElementById('asst_mic'),input=document.getElementById('asst_in');
+  if(!SR){assistantMsg('bot','Il microfono vocale non è supportato da questo browser 😕. Puoi comunque scrivere qui sotto (oppure usare la dettatura della tastiera).');return;}
+  if(assistantListening){try{assistantRec.stop();}catch(e){}return;}
+  try{assistantRec=new SR();}catch(e){assistantMsg('bot','Non riesco ad avviare il microfono. Scrivi pure la spesa.');return;}
+  assistantRec.lang='it-IT';assistantRec.interimResults=true;assistantRec.continuous=false;assistantRec.maxAlternatives=1;
+  assistantRec.onstart=()=>{assistantListening=true;if(mic)mic.classList.add('rec');if(input)input.placeholder='Sto ascoltando… parla pure';};
+  assistantRec.onresult=(e)=>{let t='';for(let k=0;k<e.results.length;k++)t+=e.results[k][0].transcript;if(input)input.value=t;};
+  assistantRec.onerror=(e)=>{assistantListening=false;if(mic)mic.classList.remove('rec');if(input)input.placeholder='Scrivi o parla una spesa…';if(e&&e.error==='not-allowed')assistantMsg('bot','Permesso microfono negato. Attivalo dalle impostazioni del sito, oppure scrivi la spesa.');};
+  assistantRec.onend=()=>{assistantListening=false;if(mic)mic.classList.remove('rec');if(input)input.placeholder='Scrivi o parla una spesa…';const v=(input&&input.value||'').trim();if(v)assistantSend();};
+  try{assistantRec.start();}catch(e){assistantListening=false;if(mic)mic.classList.remove('rec');}
 }
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const editEl=document.getElementById('s_edit');const editId=editEl?editEl.value:'';const w=W();

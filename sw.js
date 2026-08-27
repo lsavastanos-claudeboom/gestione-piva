@@ -1,5 +1,5 @@
 /* HopHop Budget — service worker (offline shell) */
-const CACHE = 'hophop-v49';
+const CACHE = 'hophop-v50';
 const CORE = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
