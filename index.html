@@ -1278,7 +1278,7 @@ function assistantRegister(r){
   // chiede prima dove registrarla: spesa settimanale o dal bonus
   assistantChoiceData={importo:r.importo,descrizione:r.descrizione||'',categoria:r.categoria||categorizza(r.descrizione||''),data:r.data||todayISO()};
   const cat=assistantChoiceData.categoria;const quando=assistantChoiceData.data===todayISO()?'oggi':fmtDate(assistantChoiceData.data);
-  const pots=bonusPots().filter(p=>p.id!=='fatture');
+  const pots=bonusPots().filter(p=>p.id!=='fatture'&&p.saldo>0.001);
   let opts=`<button type="button" class="opt" onclick="assistantChoose('spesa','')"><span class="ico">🛒</span><span>Spesa settimanale<span class="cap">rientra nel budget delle spese</span></span></button>`;
   opts+=`<button type="button" class="opt" onclick="assistantChoose('bonus','fatture')"><span class="ico">🎁</span><span>Dal monte bonus<span class="cap">prelievo dal monte accumulato</span></span></button>`;
   opts+=pots.map(p=>`<button type="button" class="opt" onclick="assistantChoose('bonus','${p.id}')"><span class="ico">📅</span><span>${esc(p.nome)}<span class="cap">bonus mensile</span></span></button>`).join('');
@@ -1287,14 +1287,68 @@ function assistantRegister(r){
   box.classList.add('open');document.getElementById('asstChoiceBack').classList.add('open');
 }
 function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;voiceSet('','Registrazione annullata','Tocca 🎤 per registrare un\'altra spesa.');}
+/* Se il budget settimanale non basta, la parte in eccesso va sul monte bonus */
+function budgetSplitInfo(data,importo){
+  const w=W();if(!(w.budgetSettimanale>0))return{overflow:false};
+  const wk=weekKey(data);const spesoWk=(w.spese||[]).filter(s=>weekKey(s.data)===wk).reduce((a,s)=>a+s.importo,0);
+  const remaining=Math.max(0,(w.budgetSettimanale||0)-spesoWk);
+  if(importo<=remaining+0.001)return{overflow:false};
+  return{overflow:true,remaining,fitBudget:remaining,toMonte:+(importo-remaining).toFixed(2)};
+}
+/* Registra una spesa settimanale gestendo l'eventuale sforamento sul monte bonus. Ritorna {split,ids,info} */
+function registraSpesaBudget(base){
+  const info=budgetSplitInfo(base.data,base.importo);const w=W();const ids={};
+  if(!info.overflow){const id=uid();ids.spesa=id;w.spese.push(Object.assign({id},base));return{split:false,ids,info};}
+  if(info.fitBudget>0){const id=uid();ids.spesa=id;w.spese.push(Object.assign({},base,{id,importo:info.fitBudget}));}
+  const idm=uid();ids.monte=idm;const mese=(base.data||'').slice(0,7);
+  w.prelieviBonus.push({id:idm,data:base.data,pot:'fatture',mese,importo:info.toMonte,note:(base.descrizione||base.categoria||'spesa')+' (oltre budget)',categoria:base.categoria});
+  return{split:true,ids,info};
+}
+function showSplitPopup(o){
+  const monteDisp=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;
+  const box=document.getElementById('asstChoice');if(!box)return;
+  box.innerHTML=`<h4>⚠️ ${esc(o.titolo)}</h4>
+    <div class="sub">Erano disponibili solo <b>${eur(o.disponibile)}</b>, così ho diviso la spesa:</div>
+    <div style="font-size:14px;line-height:1.7;margin-bottom:14px">${o.fitIcon} <b>${eur(o.fitAmount)}</b> ${esc(o.fitLabel)}<br>🎁 <b>${eur(o.toMonte)}</b> presi dal <b>monte bonus</b>${monteDisp<0?' <span style="color:var(--red)">(monte in negativo: '+eur(monteDisp)+')</span>':' <span style="color:var(--muted)">(resta '+eur(monteDisp)+')</span>'}</div>
+    <button type="button" class="opt" onclick="closeSplitPopup()"><span class="ico">👍</span><span>Ok, va bene</span></button>
+    <button type="button" class="cancel" onclick="undoSplit('${o.ids.spesa||''}','${o.ids.monte||''}')">Annulla tutto</button>`;
+  box.classList.add('open');document.getElementById('asstChoiceBack').classList.add('open');
+}
+function closeSplitPopup(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');}
+function undoSplit(a,b){const w=W();[a,b].forEach(id=>{if(!id)return;['spese','prelieviBonus'].forEach(k=>{const i=(w[k]||[]).findIndex(x=>x.id===id);if(i>=0)w[k].splice(i,1);});});save();render();closeSplitPopup();toast('Spesa annullata');}
+/* Prelievo da un bonus mensile con eventuale sforamento sul monte bonus */
+function registraBonusMensile(base,pot){
+  const w=W();const ids={};const disp=(bonusPots().find(p=>p.id===pot)||{saldo:0}).saldo;const mese=curBonusMese();
+  if(base.importo<=disp+0.001){const id=uid();ids.spesa=id;w.prelieviBonus.push({id,data:base.data,pot,mese,importo:base.importo,note:base.descrizione,categoria:base.categoria});return{split:false,ids,disp};}
+  const fit=Math.max(0,disp);const toMonte=+(base.importo-fit).toFixed(2);
+  if(fit>0){const id=uid();ids.spesa=id;w.prelieviBonus.push({id,data:base.data,pot,mese,importo:fit,note:base.descrizione,categoria:base.categoria});}
+  const idm=uid();ids.monte=idm;w.prelieviBonus.push({id:idm,data:base.data,pot:'fatture',mese:(base.data||'').slice(0,7),importo:toMonte,note:(base.descrizione||base.categoria||'spesa')+' (oltre bonus mensile)',categoria:base.categoria});
+  return{split:true,ids,disp,fit,toMonte};
+}
 function assistantChoose(kind,pot){
   const r=assistantChoiceData;if(!r){assistantChoiceCancel();return;}
   document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;
-  const w=W();const id=uid();const data=r.data;const cat=r.categoria;let dove;
-  if(kind==='spesa'){const tipoCosto=tipoCostoDaCategoria(cat);w.spese.push({id,data,descrizione:r.descrizione,categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});dove='Spese settimanali';}
-  else{const mese=isMonthlyPot(pot)?curBonusMese():(data||'').slice(0,7);w.prelieviBonus.push({id,data,pot,mese,importo:r.importo,note:r.descrizione,categoria:cat});dove=(bonusPots().find(p=>p.id===pot)||{nome:'Bonus'}).nome;}
+  const w=W();const data=r.data;const cat=r.categoria;
+  if(kind==='spesa'){
+    const tipoCosto=tipoCostoDaCategoria(cat);
+    const res=registraSpesaBudget({data,descrizione:r.descrizione,categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});
+    save();assistantRefresh();closeVoice();
+    if(res.split){showSplitPopup({titolo:'Budget settimanale superato',disponibile:res.info.remaining,fitIcon:'🛒',fitLabel:'sul budget settimanale',fitAmount:res.info.fitBudget,toMonte:res.info.toMonte,ids:res.ids});}
+    else{showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' → Spese settimanali',()=>{const i=W().spese.findIndex(s=>s.id===res.ids.spesa);if(i>=0){W().spese.splice(i,1);save();assistantRefresh();toast('Annullata');}});}
+    return;
+  }
+  if(isMonthlyPot(pot)){
+    const nome=(bonusPots().find(p=>p.id===pot)||{nome:'Bonus'}).nome;
+    const res=registraBonusMensile({data,descrizione:r.descrizione,categoria:cat,importo:r.importo},pot);
+    save();assistantRefresh();closeVoice();
+    if(res.split){showSplitPopup({titolo:nome+' esaurito',disponibile:res.disp,fitIcon:'📅',fitLabel:'sul '+nome,fitAmount:res.fit,toMonte:res.toMonte,ids:res.ids});}
+    else{showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' → '+nome,()=>{const i=W().prelieviBonus.findIndex(s=>s.id===res.ids.spesa);if(i>=0){W().prelieviBonus.splice(i,1);save();assistantRefresh();toast('Annullata');}});}
+    return;
+  }
+  const id=uid();const mese=(data||'').slice(0,7);
+  w.prelieviBonus.push({id,data,pot,mese,importo:r.importo,note:r.descrizione,categoria:cat});
   save();assistantRefresh();closeVoice();
-  showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' → '+dove,()=>{const arr=(kind==='bonus')?W().prelieviBonus:W().spese;const i=arr.findIndex(s=>s.id===id);if(i>=0){arr.splice(i,1);save();assistantRefresh();toast('Annullata');}});
+  showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' → Monte bonus',()=>{const i=W().prelieviBonus.findIndex(s=>s.id===id);if(i>=0){W().prelieviBonus.splice(i,1);save();assistantRefresh();toast('Annullata');}});
 }
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const editEl=document.getElementById('s_edit');const editId=editEl?editEl.value:'';const w=W();
@@ -1302,9 +1356,11 @@ function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp
   const fatturata=!!document.getElementById('s_fatt').checked;
   const tipoCosto=document.getElementById('s_tipo').value||'generale';
   const dedEl=document.getElementById('s_ded');let deduzionePerc=(dedEl&&dedEl.value!=='')?+dedEl.value:dedPercDefaultTipo(tipoCosto);deduzionePerc=Math.max(0,Math.min(100,+deduzionePerc||0));
-  if(editId){const s=(w.spese||[]).find(x=>x.id===editId);if(s){s.data=data;s.categoria=categoria;s.descrizione=descrizione;s.importo=imp;s.fatturata=fatturata;s.tipoCosto=tipoCosto;s.deduzionePerc=deduzionePerc;}}
-  else{w.spese.push({id:uid(),data,categoria,descrizione,importo:imp,fatturata,tipoCosto,deduzionePerc});}
-  save();closeModal();render();toast(editId?'Spesa aggiornata':'Spesa registrata');}
+  if(editId){const s=(w.spese||[]).find(x=>x.id===editId);if(s){s.data=data;s.categoria=categoria;s.descrizione=descrizione;s.importo=imp;s.fatturata=fatturata;s.tipoCosto=tipoCosto;s.deduzionePerc=deduzionePerc;}
+    save();closeModal();render();toast('Spesa aggiornata');return;}
+  const res=registraSpesaBudget({data,categoria,descrizione,importo:imp,fatturata,tipoCosto,deduzionePerc});
+  save();closeModal();render();
+  if(res.split){showSplitPopup({titolo:'Budget settimanale superato',disponibile:res.info.remaining,fitIcon:'🛒',fitLabel:'sul budget settimanale',fitAmount:res.info.fitBudget,toMonte:res.info.toMonte,ids:res.ids});}else{toast('Spesa registrata');}}
 function delSpesa(id){const w=W();const i=w.spese.findIndex(s=>s.id===id);if(i<0)return;const it=w.spese[i];w.spese.splice(i,1);save();render();showUndo('Spesa eliminata',()=>{W().spese.splice(Math.min(i,W().spese.length),0,it);save();render();toast('Spesa ripristinata');});}
 function openQuickAdd(){
   document.getElementById('modal').innerHTML=`
@@ -1479,11 +1535,23 @@ function savePrelievoBonus(){
   else{const mb=(w.speseMensili||[]).find(x=>x.id===pot);const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese&&pr.id!==editId).reduce((s,pr)=>s+pr.importo,0);disp=mb?(mb.importo||0)-speso:0;}
   const data=document.getElementById('pb_data').value||todayISO();const note=document.getElementById('pb_note').value.trim();
   const catEl=document.getElementById('pb_cat');const categoria=(catEl&&catEl.value.trim())?catEl.value.trim():categorizza(note);
-  if(editId){const p=(w.prelieviBonus||[]).find(x=>x.id===editId);if(p){p.data=data;p.pot=pot;p.mese=mese;p.importo=imp;p.note=note;p.categoria=categoria;}}
-  else{w.prelieviBonus.push({id:uid(),data,pot,mese,importo:imp,note,categoria});}
+  if(editId){const p=(w.prelieviBonus||[]).find(x=>x.id===editId);if(p){p.data=data;p.pot=pot;p.mese=mese;p.importo=imp;p.note=note;p.categoria=categoria;}
+    save();closeModal();render();
+    if(imp>disp+0.001)toast('Modificato · attenzione: superi il disponibile ('+eur(disp)+')',true);else toast('Utilizzo aggiornato');return;}
+  // nuovo: se è un bonus mensile e sfora il disponibile, il residuo va sul monte bonus
+  if(pot!=='fatture'&&imp>disp+0.001){
+    const ids={};const fit=Math.max(0,disp);const toMonte=+(imp-fit).toFixed(2);
+    if(fit>0){const id=uid();ids.spesa=id;w.prelieviBonus.push({id,data,pot,mese,importo:fit,note,categoria});}
+    const idm=uid();ids.monte=idm;w.prelieviBonus.push({id:idm,data,pot:'fatture',mese:(data||'').slice(0,7),importo:toMonte,note:(note||categoria||'spesa')+' (oltre bonus mensile)',categoria});
+    save();closeModal();render();
+    const nome=(bonusPots().find(p=>p.id===pot)||{nome:'Bonus'}).nome;
+    showSplitPopup({titolo:nome+' esaurito',disponibile:disp,fitIcon:'📅',fitLabel:'sul '+nome,fitAmount:fit,toMonte,ids});
+    return;
+  }
+  w.prelieviBonus.push({id:uid(),data,pot,mese,importo:imp,note,categoria});
   save();closeModal();render();
-  if(imp>disp+0.001)toast((editId?'Modificato':'Registrata')+' · attenzione: superi il disponibile ('+eur(disp)+') del salvadanaio',true);
-  else toast(editId?'Utilizzo aggiornato':'Spesa registrata');
+  if(imp>disp+0.001)toast('Registrata · attenzione: superi il disponibile ('+eur(disp)+')',true);
+  else toast('Spesa registrata');
 }
 function delPrelievoBonus(id){const w=W();const i=w.prelieviBonus.findIndex(p=>p.id===id);if(i<0)return;const it=w.prelieviBonus[i];w.prelieviBonus.splice(i,1);save();render();showUndo('Spesa bonus eliminata',()=>{W().prelieviBonus.splice(Math.min(i,W().prelieviBonus.length),0,it);save();render();toast('Ripristinata');});}
 
