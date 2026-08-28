@@ -231,6 +231,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 .bottomnav{display:none}
 #fab:hover{background:var(--accent2)}
 @media(min-width:900px){#fab{display:none}}
+@media(min-width:641px) and (max-width:899px){#fab{bottom:90px}}
 #asstFab{position:fixed;right:20px;bottom:20px;width:56px;height:56px;border-radius:50%;background:var(--s6);color:#fff;border:none;font-size:24px;line-height:1;box-shadow:var(--shadow);z-index:46;display:flex;align-items:center;justify-content:center}
 #asstFab:hover{filter:brightness(1.08)}
 @media(max-width:899px){#asstFab{bottom:86px}}
@@ -255,17 +256,28 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 .asst-send{background:var(--accent);color:#fff}
 @keyframes asstpulse{0%,100%{box-shadow:0 0 0 0 rgba(240,97,109,.55)}50%{box-shadow:0 0 0 9px rgba(240,97,109,0)}}
 @media(max-width:640px){.asst-sheet{right:0;left:0;bottom:0;width:100%;max-width:100%;height:82vh;border-radius:16px 16px 0 0}}
-.voice-sheet{position:fixed;z-index:61;right:20px;bottom:20px;width:380px;max-width:calc(100vw - 32px);height:56vh;max-height:520px;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;transform:translateY(24px);opacity:0;visibility:hidden;transition:transform .22s,opacity .22s,visibility .22s}
-.voice-sheet.open{transform:none;opacity:1;visibility:visible}
-.voice-x{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:26px;cursor:pointer;line-height:1}
-.voice-body{display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px;gap:16px;max-width:100%}
-.voice-mic{width:112px;height:112px;border-radius:50%;border:none;background:var(--s6);color:#fff;font-size:46px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 22px rgba(144,133,233,.4)}
-.voice-mic.rec{background:var(--red);animation:voicepulse 1.2s infinite}
-@keyframes voicepulse{0%,100%{box-shadow:0 0 0 0 rgba(240,97,109,.5)}50%{box-shadow:0 0 0 22px rgba(240,97,109,0)}}
-.voice-status{font-size:17px;font-weight:600;color:var(--txt)}
-.voice-transcript{font-size:15px;color:var(--accent);min-height:22px;font-style:italic;word-break:break-word}
-.voice-hint{font-size:12px;color:var(--muted)}
-@media(max-width:640px){.voice-sheet{right:0;left:0;bottom:0;width:100%;max-width:100%;height:64vh;border-radius:16px 16px 0 0}}
+/* Barra vocale fissa (voice-first, stile assistente) */
+.voicebar{position:fixed;z-index:47;left:50%;transform:translateX(-50%);bottom:18px;width:min(680px,calc(100vw - 20px));display:flex;align-items:center;gap:10px;padding:7px 8px 7px 10px;background:var(--panel);border:1px solid var(--line);border-radius:32px;box-shadow:var(--shadow);cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.voicebar.rec{border-color:var(--accent);box-shadow:0 0 0 3px rgba(74,158,255,.16),var(--shadow)}
+.vb-mic{flex:0 0 auto;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.vb-mid{flex:1;min-width:0}
+.vb-status{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:1px}
+.voicebar.rec .vb-status{color:var(--accent)}
+.vb-line{display:flex;align-items:center;gap:8px;min-width:0}
+.vb-text{font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.voicebar.rec .vb-text{color:var(--txt)}
+.vb-wave{display:none;align-items:flex-end;gap:2px;height:16px;flex:0 0 auto}
+.voicebar.rec .vb-wave{display:flex}
+.vb-wave span{width:3px;height:5px;background:var(--accent);border-radius:2px;animation:vbwave 1s infinite ease-in-out}
+.vb-wave span:nth-child(2){animation-delay:.1s}.vb-wave span:nth-child(3){animation-delay:.2s}.vb-wave span:nth-child(4){animation-delay:.3s}.vb-wave span:nth-child(5){animation-delay:.15s}.vb-wave span:nth-child(6){animation-delay:.25s}.vb-wave span:nth-child(7){animation-delay:.05s}
+@keyframes vbwave{0%,100%{height:5px}50%{height:16px}}
+.vb-go{flex:0 0 auto;width:46px;height:46px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:19px;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative}
+.voicebar.rec .vb-go{background:var(--red)}
+.voicebar.rec .vb-go::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--red);animation:vbripple 1.2s infinite}
+@keyframes vbripple{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.6);opacity:0}}
+@media(min-width:641px) and (max-width:899px){.voicebar{left:calc(50% + 30px)}}
+@media(min-width:900px){.voicebar{left:calc(50% + 115px);width:min(560px,calc(100vw - 280px))}}
+@media(max-width:640px){.voicebar{bottom:calc(74px + env(safe-area-inset-bottom))}.main{padding-bottom:150px}}
 .asst-choice-back{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}
 .asst-choice-back.open{display:block}
 .asst-choice{display:none;position:fixed;z-index:71;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px}
@@ -321,7 +333,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   .modal-body{padding:18px}
   th,td{padding:8px 6px;font-size:13px}
   input,select,textarea{font-size:16px}
-  #fab{bottom:calc(74px + env(safe-area-inset-bottom));right:16px}
+  #fab{bottom:calc(150px + env(safe-area-inset-bottom));right:16px}
   .bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:44;background:var(--panel);border-top:1px solid var(--line);padding:6px 4px calc(5px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.20)}
   .bottomnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);padding:5px 2px 3px;position:relative}
   .bottomnav button .bic{font-size:21px;line-height:1;opacity:.85}
@@ -404,17 +416,17 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   <main class="main" id="view" tabindex="-1"></main>
 </div>
 <button id="fab" onclick="openQuickAdd()" title="Nuovo inserimento" aria-label="Nuovo inserimento">+</button>
-<button id="asstFab" onclick="openVoice()" title="Registra spesa a voce" aria-label="Registra spesa a voce">🎤</button>
-<div class="asst-backdrop" id="asstBackdrop" onclick="closeVoice()"></div>
-<section class="voice-sheet" id="voiceSheet" aria-label="Registra spesa a voce" aria-hidden="true">
-  <button class="voice-x" onclick="closeVoice()" aria-label="Chiudi">×</button>
-  <div class="voice-body">
-    <button class="voice-mic" id="voiceMic" onclick="voiceToggle()" aria-label="Parla">🎤</button>
-    <div class="voice-status" id="voiceStatus">Tocca il microfono e parla</div>
-    <div class="voice-transcript" id="voiceTranscript"></div>
-    <div class="voice-hint" id="voiceHint">Es. "45 euro di benzina" · "12 e 50 pranzo"</div>
+<div class="voicebar" id="voiceBar" onclick="voiceToggle()" role="button" tabindex="0" aria-label="Parla per registrare una spesa">
+  <button class="vb-mic" id="vbMic" onclick="event.stopPropagation();voiceToggle()" aria-label="Parla">🎤</button>
+  <div class="vb-mid">
+    <div class="vb-status" id="vbStatus">Assistente · tocca e parla</div>
+    <div class="vb-line">
+      <div class="vb-wave" id="vbWave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="vb-text" id="vbText">Parla normalmente…</div>
+    </div>
   </div>
-</section>
+  <button class="vb-go" id="vbGo" onclick="event.stopPropagation();voiceToggle()" aria-label="Avvia o ferma l'ascolto"><span id="vbGoIc">🎙️</span></button>
+</div>
 <div class="asst-choice-back" id="asstChoiceBack" onclick="assistantChoiceCancel()"></div>
 <div class="asst-choice" id="asstChoice" role="dialog" aria-modal="true" aria-label="Dove registro la spesa"></div>
 <nav class="bottomnav" id="bottomnav" aria-label="Navigazione rapida">
@@ -1269,30 +1281,29 @@ function parseSpesaVocale(raw){
   desc=desc.replace(/\s{2,}/g,' ').replace(/^[\s,;:.\-]+|[\s,;:.\-]+$/g,'').trim();
   return {importo:(importo!=null?importo:0),descrizione:desc,categoria:desc?categorizza(desc):'',data};
 }
-/* ============ ASSISTENTE SPESE A VOCE (microfono in-app) ============ */
-let voiceRec=null,voiceListening=false;
+/* ============ ASSISTENTE SPESE A VOCE (barra fissa voice-first) ============ */
+let voiceRec=null,voiceListening=false;const VB_IDLE='Parla normalmente…',VB_IDLE_ST='Assistente · tocca e parla';
 function assistantRefresh(){if(view==='spese'||view==='dashboard'||view==='deducibili'||view==='stat')render();}
-function voiceSet(transcript,status,hint){const t=document.getElementById('voiceTranscript'),s=document.getElementById('voiceStatus'),h=document.getElementById('voiceHint');if(t)t.textContent=(transcript||'');if(s&&status!=null)s.textContent=status;if(h&&hint!=null)h.innerHTML=hint;}
-function openVoice(){const sheet=document.getElementById('voiceSheet');if(!sheet)return;sheet.classList.add('open');document.getElementById('asstBackdrop').classList.add('open');sheet.setAttribute('aria-hidden','false');voiceSet('','Tocca il microfono e parla','Es. "45 euro di benzina" · "12 e 50 pranzo"');setTimeout(voiceStart,200);}
-function closeVoice(){const sheet=document.getElementById('voiceSheet');if(!sheet)return;sheet.classList.remove('open');document.getElementById('asstBackdrop').classList.remove('open');sheet.setAttribute('aria-hidden','true');if(voiceListening&&voiceRec){try{voiceRec.stop();}catch(e){}}voiceListening=false;const mic=document.getElementById('voiceMic');if(mic)mic.classList.remove('rec');}
+function vbSet(text,status){const t=document.getElementById('vbText'),s=document.getElementById('vbStatus');if(t)t.textContent=(text==null?'':text);if(s&&status!=null)s.textContent=status;}
+function vbIdle(){vbSet(VB_IDLE,VB_IDLE_ST);}
 function voiceToggle(){if(voiceListening){try{voiceRec.stop();}catch(e){}return;}voiceStart();}
 function voiceStart(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const mic=document.getElementById('voiceMic');
-  if(!SR){voiceSet('','Microfono non supportato da questo browser','Usa il pulsante + per inserire la spesa a mano.');return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const bar=document.getElementById('voiceBar');
+  if(!SR){vbSet('Microfono non supportato — usa il +','Assistente');return;}
   if(voiceListening)return;
-  try{voiceRec=new SR();}catch(e){voiceSet('','Non riesco ad avviare il microfono','Usa il pulsante + per inserire a mano.');return;}
+  try{voiceRec=new SR();}catch(e){vbSet('Microfono non disponibile — usa il +','Assistente');return;}
   voiceRec.lang='it-IT';voiceRec.interimResults=true;voiceRec.continuous=false;voiceRec.maxAlternatives=1;let heard='';
-  voiceRec.onstart=()=>{voiceListening=true;if(mic)mic.classList.add('rec');voiceSet('','Sto ascoltando… parla pure','Tocca di nuovo il microfono per fermare');};
-  voiceRec.onresult=(e)=>{let t='';for(let k=0;k<e.results.length;k++)t+=e.results[k][0].transcript;heard=t;voiceSet(t,'Sto ascoltando…',null);};
-  voiceRec.onerror=(e)=>{voiceListening=false;if(mic)mic.classList.remove('rec');if(e&&e.error==='not-allowed')voiceSet('','Permesso microfono negato','Attivalo nelle impostazioni del sito, oppure usa il +.');else voiceSet('','Non ho sentito nulla','Tocca 🎤 e riprova.');};
-  voiceRec.onend=()=>{voiceListening=false;if(mic)mic.classList.remove('rec');const v=(heard||'').trim();if(v)voiceHandle(v);else voiceSet('','Tocca il microfono e parla','Es. "45 euro di benzina" · "12 e 50 pranzo"');};
-  try{voiceRec.start();}catch(e){voiceListening=false;if(mic)mic.classList.remove('rec');}
+  voiceRec.onstart=()=>{voiceListening=true;if(bar)bar.classList.add('rec');vbSet('Sto ascoltando…','In ascolto · tocca per fermare');};
+  voiceRec.onresult=(e)=>{let t='';for(let k=0;k<e.results.length;k++)t+=e.results[k][0].transcript;heard=t;vbSet(t||'…','In ascolto');};
+  voiceRec.onerror=(e)=>{voiceListening=false;if(bar)bar.classList.remove('rec');if(e&&e.error==='not-allowed')vbSet('Permesso microfono negato','Attivalo nelle impostazioni del sito');else vbSet('Non ho sentito, riprova',VB_IDLE_ST);};
+  voiceRec.onend=()=>{voiceListening=false;if(bar)bar.classList.remove('rec');const v=(heard||'').trim();if(v){vbSet('"'+v+'"','Elaboro…');voiceHandle(v);}else vbIdle();};
+  try{voiceRec.start();}catch(e){voiceListening=false;if(bar)bar.classList.remove('rec');}
 }
 function voiceHandle(txt){
   const r=parseSpesaVocale(txt);
-  if(r.importo>0&&r.descrizione){voiceSet('"'+txt+'"','Ho capito 👍',null);assistantRegister(r);return;}
-  if(r.importo>0&&!r.descrizione){voiceSet('"'+txt+'"','Manca la descrizione','Ripeti dicendo anche per cosa (es. "'+r.importo+' euro spesa supermercato"). Tocca 🎤.');return;}
-  voiceSet('"'+txt+'"','Non ho capito l\'importo','Ripeti con importo e cosa, es. "45 euro benzina". Tocca 🎤 per riprovare.');
+  if(r.importo>0&&r.descrizione){assistantRegister(r);vbIdle();return;}
+  if(r.importo>0&&!r.descrizione){vbSet('Manca la descrizione: ripeti anche per cosa',VB_IDLE_ST);return;}
+  vbSet('Non ho capito l\'importo: es. "45 euro benzina"',VB_IDLE_ST);
 }
 let assistantChoiceData=null;
 function assistantRegister(r){
@@ -1307,7 +1318,7 @@ function assistantRegister(r){
   box.innerHTML=`<h4>Dove registro questa spesa?</h4><div class="sub"><b>${eur(assistantChoiceData.importo)}</b> · ${esc(assistantChoiceData.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}</div>${opts}<button type="button" class="cancel" onclick="assistantChoiceCancel()">Annulla</button>`;
   box.classList.add('open');document.getElementById('asstChoiceBack').classList.add('open');
 }
-function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;voiceSet('','Registrazione annullata','Tocca 🎤 per registrare un\'altra spesa.');}
+function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;vbIdle();}
 /* Se il budget settimanale non basta, la parte in eccesso va sul monte bonus */
 function budgetSplitInfo(data,importo){
   const w=W();if(!(w.budgetSettimanale>0))return{overflow:false};
@@ -1353,7 +1364,7 @@ function assistantChoose(kind,pot){
   if(kind==='spesa'){
     const tipoCosto=tipoCostoDaCategoria(cat);
     const res=registraSpesaBudget({data,descrizione:r.descrizione,categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});
-    save();assistantRefresh();closeVoice();
+    save();assistantRefresh();
     if(res.split){showSplitPopup({titolo:'Budget settimanale superato',disponibile:res.info.remaining,fitIcon:'🛒',fitLabel:'sul budget settimanale',fitAmount:res.info.fitBudget,toMonte:res.info.toMonte,ids:res.ids});}
     else{showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' → Spese settimanali',()=>{const i=W().spese.findIndex(s=>s.id===res.ids.spesa);if(i>=0){W().spese.splice(i,1);save();assistantRefresh();toast('Annullata');}});}
     return;
@@ -1361,14 +1372,14 @@ function assistantChoose(kind,pot){
   if(isMonthlyPot(pot)){
     const nome=(bonusPots().find(p=>p.id===pot)||{nome:'Bonus'}).nome;
     const res=registraBonusMensile({data,descrizione:r.descrizione,categoria:cat,importo:r.importo},pot);
-    save();assistantRefresh();closeVoice();
+    save();assistantRefresh();
     if(res.split){showSplitPopup({titolo:nome+' esaurito',disponibile:res.disp,fitIcon:'📅',fitLabel:'sul '+nome,fitAmount:res.fit,toMonte:res.toMonte,ids:res.ids});}
     else{showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' → '+nome,()=>{const i=W().prelieviBonus.findIndex(s=>s.id===res.ids.spesa);if(i>=0){W().prelieviBonus.splice(i,1);save();assistantRefresh();toast('Annullata');}});}
     return;
   }
   const id=uid();const mese=(data||'').slice(0,7);
   w.prelieviBonus.push({id,data,pot,mese,importo:r.importo,note:r.descrizione,categoria:cat});
-  save();assistantRefresh();closeVoice();
+  save();assistantRefresh();
   showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' → Monte bonus',()=>{const i=W().prelieviBonus.findIndex(s=>s.id===id);if(i>=0){W().prelieviBonus.splice(i,1);save();assistantRefresh();toast('Annullata');}});
 }
 function saveSpesa(){const imp=+document.getElementById('s_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
