@@ -209,8 +209,9 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 .prog.over>span{background:var(--red)}.prog.warn>span{background:var(--amber)}
 .prog.big{height:12px}
 .settings-note{background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.25);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--muted);margin-bottom:18px}
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--green);color:var(--txt);padding:12px 20px;border-radius:10px;box-shadow:var(--shadow);z-index:200;opacity:0;transition:.3s;font-size:14px}
-.toast.show{opacity:1;bottom:34px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--green);color:var(--txt);padding:12px 20px;border-radius:10px;box-shadow:var(--shadow);z-index:200;opacity:0;transition:.3s;font-size:14px;pointer-events:none}
+.toast.show{opacity:1;bottom:34px;pointer-events:auto}
+@media(max-width:640px){.toast{bottom:calc(162px + env(safe-area-inset-bottom))}.toast.show{bottom:calc(172px + env(safe-area-inset-bottom))}}
 .chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}
 .chk input{width:16px;height:16px}
 .casc{display:flex;flex-direction:column;gap:2px}
@@ -277,7 +278,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
 @keyframes vbripple{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.6);opacity:0}}
 @media(min-width:641px) and (max-width:899px){.voicebar{left:calc(50% + 30px)}}
 @media(min-width:900px){.voicebar{left:calc(50% + 115px);width:min(560px,calc(100vw - 280px))}}
-@media(max-width:640px){.voicebar{bottom:calc(74px + env(safe-area-inset-bottom))}.main{padding-bottom:150px}}
+@media(max-width:640px){.voicebar{bottom:calc(92px + env(safe-area-inset-bottom))}.main{padding-bottom:170px}}
 .asst-choice-back{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:70}
 .asst-choice-back.open{display:block}
 .asst-choice{display:none;position:fixed;z-index:71;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;max-width:calc(100vw - 32px);background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px}
@@ -333,8 +334,8 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   .modal-body{padding:18px}
   th,td{padding:8px 6px;font-size:13px}
   input,select,textarea{font-size:16px}
-  #fab{bottom:calc(150px + env(safe-area-inset-bottom));right:16px}
-  .bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:44;background:var(--panel);border-top:1px solid var(--line);padding:6px 4px calc(5px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.20)}
+  #fab{bottom:calc(168px + env(safe-area-inset-bottom));right:16px}
+  .bottomnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--panel);border-top:1px solid var(--line);padding:6px 4px calc(5px + env(safe-area-inset-bottom));box-shadow:0 -4px 18px rgba(0,0,0,.20)}
   .bottomnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);padding:5px 2px 3px;position:relative}
   .bottomnav button .bic{font-size:21px;line-height:1;opacity:.85}
   .bottomnav button .blbl{font-size:10px;font-weight:600;letter-spacing:.2px}
@@ -1248,16 +1249,19 @@ function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId
     <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="es. benzina, pranzo, cancelleria…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('s_desc','s_cat');autoTipoFill()"></div>
     <div class="fld" style="grid-column:1/-1"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto dalla descrizione</span></label><select id="s_cat" ${ex&&ex.categoria?'data-manual="1"':''} onchange="catManual(this);autoTipoFill()">${catOptionsHTML(ex?ex.categoria:'')}</select></div>
     <div class="fld" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
-      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:600"><input type="checkbox" id="s_fatt" ${ex&&ex.fatturata?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)"> Spesa fatturata <span style="font-weight:400;color:var(--muted)">· deducibile in ordinario</span></label>
-      <div style="font-size:11px;color:var(--muted);margin-top:5px">Nel forfettario i costi non abbattono le imposte: serve per il regime ordinario dal 2027.</div>
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:600"><input type="checkbox" id="s_fatt" ${ex&&ex.fatturata?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)" onchange="toggleFatt(this.checked)"> Spesa fatturata <span style="font-weight:400;color:var(--muted)">· deducibile in ordinario</span></label>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Nel forfettario i costi non abbattono le imposte: serve per il regime ordinario dal 2027. Attiva solo se ti serve per la deducibilità.</div>
     </div>
-    <div class="fld"><label>Tipologia di costo</label><select id="s_tipo" onchange="setDedFromTipo()" ${ex&&ex.tipoCosto?'data-manual="1"':''}>${(W().deduzioni||[]).map(d=>`<option value="${d.key}" ${((ex&&ex.tipoCosto)||'generale')===d.key?'selected':''}>${esc(d.label)} · ${perc(d.perc)}</option>`).join('')}</select></div>
-    <div class="fld"><label>% deducibile</label><input id="s_ded" type="number" step="1" min="0" max="100" inputmode="numeric" value="${ex?(ex.deduzionePerc!=null?ex.deduzionePerc:dedPercDefaultTipo(ex.tipoCosto||'generale')):dedPercDefaultTipo('generale')}" ${ex&&ex.deduzionePerc!=null?'data-manual="1"':''} oninput="this.dataset.manual='1'"></div>
+    <div id="s_dedwrap" style="display:${ex&&ex.fatturata?'contents':'none'}">
+      <div class="fld"><label>Tipologia di costo</label><select id="s_tipo" onchange="setDedFromTipo()" ${ex&&ex.tipoCosto?'data-manual="1"':''}>${(W().deduzioni||[]).map(d=>`<option value="${d.key}" ${((ex&&ex.tipoCosto)||'generale')===d.key?'selected':''}>${esc(d.label)} · ${perc(d.perc)}</option>`).join('')}</select></div>
+      <div class="fld"><label>% deducibile</label><input id="s_ded" type="number" step="1" min="0" max="100" inputmode="numeric" value="${ex?(ex.deduzionePerc!=null?ex.deduzionePerc:dedPercDefaultTipo(ex.tipoCosto||'generale')):dedPercDefaultTipo('generale')}" ${ex&&ex.deduzionePerc!=null?'data-manual="1"':''} oninput="this.dataset.manual='1'"></div>
+    </div>
   </div></div>
   <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delSpesa('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="saveSpesa()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');}
 function setDedFromTipo(){const sel=document.getElementById('s_tipo'),ded=document.getElementById('s_ded');if(!sel)return;sel.dataset.manual='1';if(ded){ded.value=dedPercDefaultTipo(sel.value);ded.dataset.manual='';}}
 function autoTipoFill(){const cat=document.getElementById('s_cat'),sel=document.getElementById('s_tipo'),ded=document.getElementById('s_ded');if(!cat||!sel||sel.dataset.manual==='1')return;const t=tipoCostoDaCategoria(cat.value);sel.value=t;if(ded&&ded.dataset.manual!=='1')ded.value=dedPercDefaultTipo(t);}
+function toggleFatt(on){const w=document.getElementById('s_dedwrap');if(w)w.style.display=on?'contents':'none';if(on)autoTipoFill();}
 /* Interpreta una frase dettata/scritta -> importo, descrizione, categoria, data */
 function parseSpesaVocale(raw){
   const orig=(raw||'').trim();if(!orig)return{importo:0,descrizione:'',categoria:'',data:todayISO()};
