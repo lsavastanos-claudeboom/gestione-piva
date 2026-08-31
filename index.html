@@ -1246,7 +1246,7 @@ function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId
     <div class="fld"><label>Data</label><input id="s_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
     <div class="fld"><label>Importo (€)</label><input id="s_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
     <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="es. benzina, pranzo, cancelleria…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('s_desc','s_cat');autoTipoFill()"></div>
-    <div class="fld" style="grid-column:1/-1"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto dalla descrizione</span></label><input id="s_cat" placeholder="—" list="catlist_all" value="${ex?esc(ex.categoria||''):''}" ${ex&&ex.categoria?'data-manual="1"':''} oninput="catManual(this);autoTipoFill()"></div>
+    <div class="fld" style="grid-column:1/-1"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto dalla descrizione</span></label><select id="s_cat" ${ex&&ex.categoria?'data-manual="1"':''} onchange="catManual(this);autoTipoFill()">${catOptionsHTML(ex?ex.categoria:'')}</select></div>
     <div class="fld" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
       <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:600"><input type="checkbox" id="s_fatt" ${ex&&ex.fatturata?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)"> Spesa fatturata <span style="font-weight:400;color:var(--muted)">· deducibile in ordinario</span></label>
       <div style="font-size:11px;color:var(--muted);margin-top:5px">Nel forfettario i costi non abbattono le imposte: serve per il regime ordinario dal 2027.</div>
@@ -1254,7 +1254,6 @@ function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId
     <div class="fld"><label>Tipologia di costo</label><select id="s_tipo" onchange="setDedFromTipo()" ${ex&&ex.tipoCosto?'data-manual="1"':''}>${(W().deduzioni||[]).map(d=>`<option value="${d.key}" ${((ex&&ex.tipoCosto)||'generale')===d.key?'selected':''}>${esc(d.label)} · ${perc(d.perc)}</option>`).join('')}</select></div>
     <div class="fld"><label>% deducibile</label><input id="s_ded" type="number" step="1" min="0" max="100" inputmode="numeric" value="${ex?(ex.deduzionePerc!=null?ex.deduzionePerc:dedPercDefaultTipo(ex.tipoCosto||'generale')):dedPercDefaultTipo('generale')}" ${ex&&ex.deduzionePerc!=null?'data-manual="1"':''} oninput="this.dataset.manual='1'"></div>
   </div></div>
-  <datalist id="catlist_all">${CATEGORIE.map(c=>`<option>${c.label}</option>`).join('')}</datalist>
   <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delSpesa('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="saveSpesa()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');}
 function setDedFromTipo(){const sel=document.getElementById('s_tipo'),ded=document.getElementById('s_ded');if(!sel)return;sel.dataset.manual='1';if(ded){ded.value=dedPercDefaultTipo(sel.value);ded.dataset.manual='';}}
@@ -1491,6 +1490,8 @@ function categorizza(text){const t=' '+(text||'').toLowerCase()+' ';for(const c 
 function catEmoji(label){const c=CATEGORIE.find(x=>x.label===label);return c?c.emoji:'📦';}
 function autoCatFill(srcId,catId){const cat=document.getElementById(catId),src=document.getElementById(srcId);if(cat&&src&&cat.dataset.manual!=='1')cat.value=categorizza(src.value);}
 function catManual(el){if(el)el.dataset.manual='1';}
+/* Opzioni per il menù a tendina categoria (select nativo, affidabile su iPhone) */
+function catOptionsHTML(sel){sel=sel||'';let o='<option value="">— scegli categoria —</option>';o+=CATEGORIE.map(c=>`<option value="${esc(c.label)}"${sel===c.label?' selected':''}>${c.emoji} ${esc(c.label)}</option>`).join('');o+=`<option value="Altro"${sel==='Altro'?' selected':''}>📦 Altro</option>`;return o;}
 function prelCat(p){return (p.categoria&&p.categoria!=='Altro')?p.categoria:categorizza(p.note||'');}
 function bonusUtilPrel(tipo){let p=prelieviAnno();if(tipo==='monte')p=p.filter(x=>!isMonthlyPot(x.pot));else if(tipo==='mensili')p=p.filter(x=>isMonthlyPot(x.pot));return p;}
 function renderBonusUtilizzi(){
@@ -1551,9 +1552,8 @@ function openPrelievoBonus(prePot,preMese,editId){
       <div class="fld"><label>Mese di riferimento</label><select id="pb_mese" onchange="refreshPbPot()">${mesiOpts.map(k=>`<option value="${k}" ${k===dm?'selected':''}>${monthLabel(k)}</option>`).join('')}</select></div>
       <div class="fld"><label>Importo (€)</label><input id="pb_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
       <div class="fld"><label>Note</label><input id="pb_note" placeholder="es. benzina, pranzo cliente…" value="${ex?esc(ex.note||''):''}" oninput="autoCatFill('pb_note','pb_cat')"></div>
-      <div class="fld"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto</span></label><input id="pb_cat" list="catlist_all" placeholder="—" value="${ex?esc(prelCat(ex)):''}" ${ex&&ex.categoria?'data-manual="1"':''} oninput="catManual(this)"></div>
+      <div class="fld"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto</span></label><select id="pb_cat" ${ex&&ex.categoria?'data-manual="1"':''} onchange="catManual(this)">${catOptionsHTML(ex?prelCat(ex):'')}</select></div>
     </div></div>
-    <datalist id="catlist_all">${CATEGORIE.map(c=>`<option>${c.label}</option>`).join('')}</datalist>
     <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delPrelievoBonus('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="savePrelievoBonus()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');
 }
