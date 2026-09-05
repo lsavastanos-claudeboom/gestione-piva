@@ -1419,7 +1419,7 @@ function renderBonus(el){
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
   const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
   const monthlyIds=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').map(x=>x.id);const firstMonthly=monthlyIds[0]||'';
-  const storico=monteStoricoFineMese();const storicoFwd=storico.filter(s=>!s.passato);
+  const storico=monteStoricoFineMese();const storicoPast=storico.filter(s=>s.passato||s.corrente);const storicoPastDesc=storicoPast.slice().reverse();
   const freeze=Math.min(Math.max(0,w.bonusFreeze||0),Math.max(0,potFat.saldo));
   el.innerHTML=`
   ${pageHead('Bonus','Il tuo monte bonus e la proiezione di quanto puoi spendere')}
@@ -1455,15 +1455,17 @@ function renderBonus(el){
     </tbody></table>
   </div>
   <div class="card" data-cat="bonus"><div class="card-head"><h3>📈 Storico monte a fine mese</h3></div>
-    <div class="desc">Per ogni mese, da adesso in avanti: le entrate nel monte (bonus delle fatture), le uscite (utilizzi registrati) e il totale bonus disponibile a fine mese. I mesi ancora da venire mostrano il valore previsto in base ai dati inseriti finora.</div>
-    ${storicoFwd.length?svgBars(storicoFwd.map(s=>({label:s.label.slice(0,3),value:s.monte,color:s.futuro?'var(--smut)':'var(--s6)'}))):''}
+    <div class="desc">Per ogni mese passato (più quello in corso): le entrate nel monte (bonus delle fatture), le uscite (utilizzi) e il totale disponibile a fine mese. Scorri per vedere i mesi precedenti.</div>
+    ${storicoPast.length?`<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div style="min-width:${Math.max(300,storicoPast.length*52)}px">${svgBars(storicoPast.map(s=>({label:s.label.slice(0,3),value:s.monte,color:s.corrente?'var(--accent)':'var(--s6)'})))}</div></div>`:'<div class="empty">Ancora nessun mese passato da mostrare.</div>'}
+    <div style="max-height:340px;overflow-y:auto;margin-top:6px">
     <table class="rtable"><thead><tr><th>Fine mese</th><th class="num">Entrate</th><th class="num">Uscite</th><th class="num">Monte disponibile</th></tr></thead><tbody>
-    ${storicoFwd.map(s=>`<tr>
-      <td data-label="Fine mese"><b>${monthLabel(s.mese)}</b>${s.futuro?' <span style="font-size:10px;color:var(--muted)">previsto</span>':''}</td>
+    ${storicoPastDesc.map(s=>`<tr>
+      <td data-label="Fine mese"><b>${monthLabel(s.mese)}</b>${s.corrente?' <span style="font-size:10px;color:var(--muted)">in corso</span>':''}</td>
       <td class="num" data-label="Entrate" style="color:var(--green)">${s.entrate?('+'+eur(s.entrate)):eur(0)}</td>
       <td class="num" data-label="Uscite" style="color:var(--red)">${s.uscite?('−'+eur(s.uscite)):eur(0)}</td>
       <td class="num" data-label="Monte disponibile"><b style="color:${s.monte<0?'var(--red)':'var(--violet)'}">${eur(s.monte)}</b></td></tr>`).join('')}
     </tbody></table>
+    </div>
   </div>
   <div class="card" data-cat="bonus"><div class="card-head"><h3>💸 Utilizzi dei bonus</h3><button class="btn-sm" onclick="openPrelievoBonus()">+ Registra utilizzo</button></div>
     <div class="desc">Analizza gli utilizzi dei bonus per tipo e periodo · sotto l'elenco filtrato</div>
