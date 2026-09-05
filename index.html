@@ -2027,20 +2027,24 @@ document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementB
 
 applyTheme(localStorage.getItem(TKEY)||'dark');
 applyFontScale(localStorage.getItem(FSKEY)||'0');
-/* ---- Service worker: apertura e uso offline (evita perdite dati) ---- */
+/* ---- Service worker: offline + aggiornamento automatico alla nuova versione ---- */
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').then(reg=>{
-      reg.addEventListener('updatefound',()=>{
-        const nw=reg.installing;if(!nw)return;
-        nw.addEventListener('statechange',()=>{
-          if(nw.state==='installed'&&navigator.serviceWorker.controller){
-            try{toast('Nuova versione disponibile: ricarica');}catch(e){}
-          }
-        });
-      });
-    }).catch(()=>{});
+  const hadController=!!navigator.serviceWorker.controller;
+  let refreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(refreshing||!hadController)return;
+    let busy=false;try{const ov=document.getElementById('overlay'),ac=document.getElementById('asstChoice');busy=(ov&&ov.classList.contains('show'))||voiceListening||(ac&&ac.classList.contains('open'));}catch(e){}
+    if(busy)return; // non interrompere un inserimento: si applicherà alla prossima apertura
+    refreshing=true;try{toast('✨ Aggiornato all\'ultima versione');}catch(e){}
+    setTimeout(()=>{try{location.reload();}catch(e){}},800);
   });
+  const registerSW=()=>{navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+    reg.update().catch(()=>{});
+    setInterval(()=>reg.update().catch(()=>{}),30*60*1000);
+    reg.addEventListener('updatefound',()=>{const nw=reg.installing;if(!nw)return;nw.addEventListener('statechange',()=>{if(nw.state==='installed'&&navigator.serviceWorker.controller){try{nw.postMessage('skipWaiting');}catch(e){}}});});
+  }).catch(()=>{});};
+  window.addEventListener('load',registerSW);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){try{navigator.serviceWorker.getRegistration().then(r=>{if(r)r.update().catch(()=>{});}).catch(()=>{});}catch(e){}}});
 }
 /* ---- Indicatore offline/online ---- */
 function updateNetStatus(){const on=navigator.onLine;const d=document.getElementById('syncDot'),t=document.getElementById('syncTxt');
