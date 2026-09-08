@@ -401,6 +401,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
       <button data-v="conto"><span class="ic">🏦</span><span>Conto imposte</span></button>
       <button data-v="ordinario"><span class="ic">📆</span><span>Ordinario</span></button>
       <button data-v="spese"><span class="ic">🛒</span><span>Spese</span></button>
+      <button data-v="programmati"><span class="ic">🗓️</span><span>Movimenti programmati</span></button>
       <button data-v="deducibili"><span class="ic">🧮</span><span>Deducibilità</span></button>
       <button data-v="bonus"><span class="ic">🎁</span><span>Bonus</span></button>
       <button data-v="proiezione"><span class="ic">📈</span><span>Proiezione</span></button>
@@ -480,7 +481,7 @@ function newWorkspace(){return{
   ],
   bonusProgressivo:0, bonusRiserva:0, bonusFreeze:0, bonusIniData:'', prelieviBonus:[], bonusMensiliInizio:null, bonusFattureInizio:null,
   proiezione:{quotaOrdinaria:30000, accantonaAnnoSucc:20000, speseGrandi:[{nome:'Auto',importo:9300}], scenari:[100000,85000,80000,75000], target:85000},
-  fatture:[], spese:[], movimenti:[]
+  fatture:[], spese:[], movimenti:[], programmati:[], entrateMonte:[]
 };}
 function defaults(){return{utenti:[{nome:'Utenza 1',pin:'0000'},{nome:'Utenza 2',pin:'0000'}],workspaces:[seedWorkspace2026(),newWorkspace()]};}
 /* Storico 2026 importato dal file Excel PROIEZIONE 2026 (utenza 1, forfettario) */
@@ -687,7 +688,7 @@ function initApp(){
 function toggleDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.toggle('open');if(bd)bd.classList.toggle('open');}
 function closeDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.remove('open');if(bd)bd.classList.remove('open');}
 function setTopTitle(b){const t=document.getElementById('topbarTitle');if(t&&b){const sp=b.querySelector('span:not(.ic)');if(sp)t.textContent=sp.textContent;}}
-function render(){({dashboard:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:renderSpese,bonus:renderBonus,proiezione:renderProiezione,stat:renderStat,deducibili:renderDeducibili,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
+function render(){({dashboard:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:renderSpese,programmati:renderProgrammati,bonus:renderBonus,proiezione:renderProiezione,stat:renderStat,deducibili:renderDeducibili,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
 function pageHead(title,sub){const w=W();return `<div class="page-head"><div><h2>${title}</h2><p>${sub}</p></div><span class="regime-pill">${esc(state.utenti[currentUser].nome)} · ${w.regimeAttivo} · ${w.anno}</span></div>`;}
 function goTo(v){view=v;document.querySelectorAll('#nav button').forEach(x=>{const on=x.dataset.v===v;x.classList.toggle('active',on);if(on)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current');});document.querySelectorAll('.bottomnav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));setTopTitle(document.querySelector('#nav button[data-v="'+v+'"]'));closeDrawer();render();}
 
@@ -778,8 +779,9 @@ function bonusPots(){
   const prelPot=id=>prel.filter(p=>p.pot===id).reduce((s,p)=>s+p.importo,0);
   const iniDa=w.bonusIniData||'';
   const bonusFatture=fattureAnno().reduce((s,f)=>s+((!iniDa||(f.data||'')>iniDa)?(f.bonus||0):0),0);
+  const entrateM=(w.entrateMonte||[]).filter(e=>inAnno(e.data)).reduce((s,e)=>s+(+e.importo||0),0);
   const pots=[
-    {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture,prelievi:prelPot('fatture')+prelPot('iniziale'),info:'riserva iniziale + bonus delle fatture'}
+    {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture+entrateM,prelievi:prelPot('fatture')+prelPot('iniziale'),info:'riserva iniziale + bonus delle fatture'}
   ];
   (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{const spMese=prel.filter(p=>p.pot===x.id&&p.mese===cm).reduce((s,p)=>s+p.importo,0);pots.push({id:x.id,nome:x.nome,iniziale:0,accrediti:(x.importo||0),prelievi:spMese,mensile:x.importo,mese:cm,info:eur(x.importo)+'/mese · '+monthLabel(cm)});});
   pots.forEach(p=>p.saldo=p.iniziale+p.accrediti-p.prelievi);
@@ -787,16 +789,16 @@ function bonusPots(){
 }
 function monteStoricoFineMese(){
   const w=W();const y=w.anno;const iniDa=w.bonusIniData||'';const riserva=+w.bonusProgressivo||0;
-  const fat=fattureAnno();
+  const fat=fattureAnno();const entM=(w.entrateMonte||[]).filter(e=>inAnno(e.data));
   const prelMonte=prelieviAnno().filter(p=>p.pot==='fatture'||p.pot==='iniziale');
   const now=new Date();
   const curPref=(y===now.getFullYear())?(y+'-'+String(now.getMonth()+1).padStart(2,'0')):(y>now.getFullYear()?'0000-00':'9999-99');
   const out=[];
   for(let m=1;m<=12;m++){
     const pref=y+'-'+String(m).padStart(2,'0');const end=pref+'-31';
-    const entrate=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'').slice(0,7)===pref)?(f.bonus||0):0),0);
+    const entrate=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'').slice(0,7)===pref)?(f.bonus||0):0),0)+entM.reduce((s,e)=>s+(((e.data||'').slice(0,7)===pref)?(+e.importo||0):0),0);
     const uscite=prelMonte.reduce((s,p)=>s+(((p.data||'').slice(0,7)===pref)?p.importo:0),0);
-    const accr=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'')<=end)?(f.bonus||0):0),0);
+    const accr=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'')<=end)?(f.bonus||0):0),0)+entM.reduce((s,e)=>s+(((e.data||'')<=end)?(+e.importo||0):0),0);
     const prel=prelMonte.reduce((s,p)=>s+(((p.data||'')<=end)?p.importo:0),0);
     out.push({mese:pref,label:MESI[m-1],entrate,uscite,monte:riserva+accr-prel,corrente:(pref===curPref),passato:(pref<curPref),futuro:(pref>curPref)});
   }
@@ -1186,6 +1188,144 @@ function renderSpese(el){
   <div class="card" data-cat="spese"><div class="card-head"><h3>🛒 Registro spese</h3><div><span style="font-size:12px;color:var(--muted);margin-right:10px">Budget/settimana: <b style="color:var(--txt)">${eur(budget)}</b></span><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div></div>
     ${weeklyRegistroHTML()}
   </div>`;
+}
+
+/* ============ MOVIMENTI PROGRAMMATI (futuri, da registrare) ============ */
+function renderProgrammati(el){
+  const w=W();
+  const list=(w.programmati||[]).slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const oggi=todayISO();
+  const entrate=list.filter(m=>m.tipo==='entrata').reduce((s,m)=>s+(+m.importo||0),0);
+  const uscite=list.filter(m=>m.tipo==='uscita').reduce((s,m)=>s+(+m.importo||0),0);
+  const netto=entrate-uscite;
+  const tipoBadge=t=>t==='entrata'
+    ? `<span class="tag" style="background:rgba(46,204,113,.14);color:var(--green)">↑ Entrata</span>`
+    : `<span class="tag" style="background:rgba(255,107,107,.14);color:var(--red)">↓ Uscita</span>`;
+  const potNome=id=>(bonusPots().find(p=>p.id===id)||{nome:'Monte bonus'}).nome;
+  const rows=list.map(m=>{
+    const scaduto=(m.data||'')<oggi;
+    const seg=m.tipo==='entrata'?'+':'−';const col=m.tipo==='entrata'?'var(--green)':'var(--red)';
+    const fonte=m.tipo==='uscita'?`<span style="font-size:11px;color:var(--muted)">da ${esc(potNome(m.pot||'fatture'))}</span>`:'';
+    return `<tr>
+      <td data-label="Data">${fmtDate(m.data)}${scaduto?' <span class="tag" style="background:rgba(255,183,77,.16);color:var(--amber)">da registrare</span>':''}</td>
+      <td data-label="Movimento"><b>${esc(m.descrizione||m.categoria||'—')}</b>${m.categoria||fonte?`<br><span style="font-size:11px;color:var(--muted)">${[esc(m.categoria||''),fonte].filter(Boolean).join(' · ')}</span>`:''}</td>
+      <td data-label="Tipo">${tipoBadge(m.tipo)}</td>
+      <td class="num" data-label="Importo" style="color:${col};font-weight:700">${seg} ${eur(m.importo)}</td>
+      <td class="num" data-label="Azioni" style="white-space:nowrap">
+        <button class="btn-sm" style="padding:5px 10px" onclick="registraProgrammato('${m.id}')">✓ Registra</button>
+        <button class="btn-sm btn-ghost" style="padding:5px 9px" onclick="openProgrammato('${m.id}')">✎</button>
+        <button class="btn-sm btn-ghost" style="padding:5px 9px;color:var(--red);border-color:var(--red)" onclick="delProgrammato('${m.id}')">🗑</button>
+      </td></tr>`;
+  }).join('');
+  el.innerHTML=`
+  ${pageHead('Movimenti programmati','Entrate e uscite future già previste. Registrale quando avvengono: incidono sul monte bonus disponibile.')}
+  <div class="kpi-grid">
+    <div class="kpi green"><div class="lbl">Entrate previste</div><div class="val" style="font-size:22px;color:var(--green)">${eur(entrate)}</div><div class="sub">${num(list.filter(m=>m.tipo==='entrata').length)} movimenti</div></div>
+    <div class="kpi"><div class="lbl">Uscite previste</div><div class="val" style="font-size:22px;color:var(--red)">${eur(uscite)}</div><div class="sub">${num(list.filter(m=>m.tipo==='uscita').length)} movimenti</div></div>
+    <div class="kpi accent"><div class="lbl">Effetto netto sul monte</div><div class="val" style="font-size:22px;color:${netto>=0?'var(--green)':'var(--red)'}">${netto>=0?'+':'−'} ${eur(Math.abs(netto))}</div><div class="sub">se registri tutto</div></div>
+  </div>
+  <div class="card" data-cat="spese"><div class="card-head"><h3>🗓️ Movimenti in programma</h3><button class="btn-sm" onclick="openProgrammato()">+ Nuovo movimento</button></div>
+    ${list.length?`<table class="rtable"><thead><tr><th>Data</th><th>Movimento</th><th>Tipo</th><th class="num">Importo</th><th class="num">Azioni</th></tr></thead><tbody>${rows}</tbody>
+    <tfoot><tr style="border-top:2px solid var(--line);font-weight:700">
+      <td data-label="Totale" colspan="3">Totale (${num(list.length)} movimenti)</td>
+      <td class="num" data-label="Netto" style="color:${netto>=0?'var(--green)':'var(--red)'}">${netto>=0?'+':'−'} ${eur(Math.abs(netto))}</td>
+      <td class="num" data-label="" style="font-weight:400;color:var(--muted);font-size:11px">↑ ${eur(entrate)} · ↓ ${eur(uscite)}</td>
+    </tr></tfoot></table>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">“Registra” trasforma il movimento in un'entrata/uscita ufficiale sul monte bonus e lo toglie da questa lista.</div>`
+    :`<div class="empty">Nessun movimento programmato. Aggiungi entrate o uscite future che sai già di avere.</div>`}
+  </div>`;
+}
+function pgPotOptions(dm,cur){
+  const w=W();const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus disponibile',saldo:0};
+  const opts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];
+  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{
+    const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);
+    const disp=(mb.importo||0)-speso;
+    if(disp>0||mb.id===cur)opts.push({id:mb.id,nome:mb.nome,saldo:disp});
+  });
+  return opts;
+}
+function refreshPgPot(){
+  const wrap=document.getElementById('pg_potwrap');const tipo=(document.getElementById('pg_tipo')||{}).value;
+  if(wrap)wrap.style.display=(tipo==='uscita')?'':'none';
+  const sel=document.getElementById('pg_pot');const dataEl=document.getElementById('pg_data');if(!sel||!dataEl)return;
+  const dm=(dataEl.value||todayISO()).slice(0,7);const cur=sel.value||'fatture';
+  sel.innerHTML=pgPotOptions(dm,cur).map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('');
+}
+function openProgrammato(editId){
+  const w=W();const ex=editId?(w.programmati||[]).find(m=>m.id===editId):null;
+  const exTipo=ex?ex.tipo:'uscita';const exPot=(ex&&ex.pot)?ex.pot:'fatture';
+  const dm=(ex?ex.data:todayISO()||'').slice(0,7);
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>${ex?'Modifica movimento':'Nuovo movimento programmato'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><input type="hidden" id="pg_edit" value="${ex?esc(editId):''}"><div class="form-grid">
+      <div class="fld"><label>Data prevista</label><input id="pg_data" type="date" value="${ex?esc(ex.data):todayISO()}" onchange="refreshPgPot()"></div>
+      <div class="fld"><label>Importo (€)</label><input id="pg_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
+      <div class="fld"><label>Tipo</label><select id="pg_tipo" onchange="refreshPgPot()"><option value="uscita" ${exTipo==='uscita'?'selected':''}>↓ Uscita</option><option value="entrata" ${exTipo==='entrata'?'selected':''}>↑ Entrata</option></select></div>
+      <div class="fld" id="pg_potwrap" style="display:${exTipo==='uscita'?'':'none'}"><label>Attinge da <span style="color:var(--muted);font-weight:400">· salvadanaio</span></label><select id="pg_pot">${pgPotOptions(dm,exPot).map(p=>`<option value="${p.id}" ${p.id===exPot?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('')}</select></div>
+      <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="pg_desc" placeholder="es. F24 acconto, incasso fattura, assicurazione…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('pg_desc','pg_cat')"></div>
+      <div class="fld" style="grid-column:1/-1"><label>Categoria / tipo spesa <span style="color:var(--muted);font-weight:400">· auto dalla descrizione</span></label><select id="pg_cat" ${ex&&ex.categoria?'data-manual="1"':''} onchange="catManual(this)">${catOptionsHTML(ex?ex.categoria:'')}</select></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px">Le <b>entrate</b> vanno sempre nel monte bonus disponibile. Per le <b>uscite</b> scegli da quale salvadanaio attingere: potrai modificarlo anche in seguito.</div>
+    </div>
+    <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delProgrammato('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="saveProgrammato()">${ex?'Salva modifiche':'Salva'}</button></div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+function saveProgrammato(){
+  const imp=+document.getElementById('pg_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
+  const w=W();if(!w.programmati)w.programmati=[];
+  const data=document.getElementById('pg_data').value||todayISO();
+  const tipo=document.getElementById('pg_tipo').value==='entrata'?'entrata':'uscita';
+  const potEl=document.getElementById('pg_pot');const pot=(tipo==='uscita'&&potEl&&potEl.value)?potEl.value:'fatture';
+  const desc=document.getElementById('pg_desc').value.trim();
+  const catEl=document.getElementById('pg_cat');const categoria=(catEl&&catEl.value.trim())?catEl.value.trim():(desc?categorizza(desc):'');
+  const editId=(document.getElementById('pg_edit')||{}).value;
+  if(editId){const m=w.programmati.find(x=>x.id===editId);if(m){m.data=data;m.tipo=tipo;m.pot=pot;m.descrizione=desc;m.categoria=categoria;m.importo=imp;}save();closeModal();render();toast('Movimento aggiornato');return;}
+  w.programmati.push({id:uid(),data,tipo,pot,descrizione:desc,categoria,importo:imp});
+  save();closeModal();render();toast('Movimento programmato aggiunto');
+}
+function delProgrammato(id){
+  const w=W();const i=(w.programmati||[]).findIndex(m=>m.id===id);if(i<0)return;const it=w.programmati[i];
+  w.programmati.splice(i,1);save();render();
+  showUndo('Movimento eliminato',()=>{const ww=W();if(!ww.programmati)ww.programmati=[];ww.programmati.splice(Math.min(i,ww.programmati.length),0,it);save();render();toast('Movimento ripristinato');});
+}
+function registraProgrammato(id){
+  const w=W();const i=(w.programmati||[]).findIndex(m=>m.id===id);if(i<0)return;const m=w.programmati[i];
+  const imp=+m.importo||0;const data=m.data||todayISO();const mese=(data||'').slice(0,7);
+  const categoria=m.categoria||(m.descrizione?categorizza(m.descrizione):'');
+  const desc=m.descrizione||categoria||'Movimento programmato';
+  const createdIds=[];
+  if(m.tipo==='entrata'){
+    if(!w.entrateMonte)w.entrateMonte=[];
+    const nid=uid();createdIds.push({arr:'entrateMonte',id:nid});
+    w.entrateMonte.push({id:nid,data,descrizione:desc,categoria,importo:imp});
+  }else{
+    if(!w.prelieviBonus)w.prelieviBonus=[];
+    const pot=(m.pot&&m.pot!=='fatture'&&isMonthlyPot(m.pot))?m.pot:'fatture';
+    if(pot==='fatture'){
+      const nid=uid();createdIds.push({arr:'prelieviBonus',id:nid});
+      w.prelieviBonus.push({id:nid,data,pot:'fatture',mese,importo:imp,note:desc,categoria});
+    }else{
+      // uscita da bonus mensile: se sfora il disponibile, il residuo va sul monte bonus
+      const mb=(w.speseMensili||[]).find(x=>x.id===pot);
+      const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese).reduce((s,pr)=>s+pr.importo,0);
+      const disp=Math.max(0,mb?(mb.importo||0)-speso:0);
+      const fit=Math.min(imp,disp);const toMonte=+(imp-fit).toFixed(2);
+      if(fit>0){const nid=uid();createdIds.push({arr:'prelieviBonus',id:nid});w.prelieviBonus.push({id:nid,data,pot,mese,importo:fit,note:desc,categoria});}
+      if(toMonte>0){const nid=uid();createdIds.push({arr:'prelieviBonus',id:nid});w.prelieviBonus.push({id:nid,data,pot:'fatture',mese,importo:toMonte,note:desc+' (oltre bonus mensile)',categoria});}
+    }
+  }
+  w.programmati.splice(i,1);
+  save();render();
+  let verso;
+  if(m.tipo==='entrata')verso='accreditata sul monte bonus disponibile';
+  else{const nome=(bonusPots().find(p=>p.id===(m.pot||'fatture'))||{nome:'monte bonus'}).nome;verso='addebitata da '+nome;}
+  showUndo('Registrato: '+desc+' — '+verso,()=>{
+    const ww=W();
+    createdIds.forEach(c=>{ww[c.arr]=(ww[c.arr]||[]).filter(x=>x.id!==c.id);});
+    if(!ww.programmati)ww.programmati=[];ww.programmati.splice(Math.min(i,ww.programmati.length),0,m);
+    save();render();toast('Registrazione annullata');
+  });
 }
 
 /* ============ DEDUCIBILITÀ / SPESE FATTURATE (regime ordinario dal 2027) ============ */
