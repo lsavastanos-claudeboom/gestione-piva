@@ -684,6 +684,7 @@ function initApp(){
   document.querySelectorAll('#nav button').forEach(b=>{const on=b.dataset.v===view;b.classList.toggle('active',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');b.onclick=()=>goTo(b.dataset.v);});document.querySelectorAll('.bottomnav button').forEach(b=>b.classList.toggle('active',b.dataset.v===view));
   setTopTitle(document.querySelector('#nav button[data-v="'+view+'"]'));
   render();
+  setTimeout(()=>{siriLastCheck=0;siriSync();},900);
 }
 function toggleDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.toggle('open');if(bd)bd.classList.toggle('open');}
 function closeDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.remove('open');if(bd)bd.classList.remove('open');}
@@ -1461,7 +1462,7 @@ function assistantRegister(r){
   box.innerHTML=`<h4>Dove registro questa spesa?</h4><div class="sub"><b>${eur(assistantChoiceData.importo)}</b> · ${esc(assistantChoiceData.descrizione||cat)} · ${catEmoji(cat)} ${esc(cat)} · ${quando}</div>${opts}<button type="button" class="cancel" onclick="assistantChoiceCancel()">Annulla</button>`;
   box.classList.add('open');document.getElementById('asstChoiceBack').classList.add('open');
 }
-function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;vbIdle();}
+function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;vbIdle();if(typeof siriNext==='function')setTimeout(siriNext,350);}
 /* Se il budget settimanale non basta, la parte in eccesso va sul monte bonus */
 function budgetSplitInfo(data,importo){
   const w=W();if(!(w.budgetSettimanale>0))return{overflow:false};
@@ -1489,7 +1490,7 @@ function showSplitPopup(o){
     <button type="button" class="cancel" onclick="undoSplit('${o.ids.spesa||''}','${o.ids.monte||''}')">Annulla tutto</button>`;
   box.classList.add('open');document.getElementById('asstChoiceBack').classList.add('open');
 }
-function closeSplitPopup(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');}
+function closeSplitPopup(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');if(typeof siriNext==='function')setTimeout(siriNext,350);}
 function undoSplit(a,b){const w=W();[a,b].forEach(id=>{if(!id)return;['spese','prelieviBonus'].forEach(k=>{const i=(w[k]||[]).findIndex(x=>x.id===id);if(i>=0)w[k].splice(i,1);});});save();render();closeSplitPopup();toast('Spesa annullata');}
 /* Prelievo da un bonus mensile con eventuale sforamento sul monte bonus */
 function registraBonusMensile(base,pot){
@@ -1503,6 +1504,7 @@ function registraBonusMensile(base,pot){
 function assistantChoose(kind,pot){
   const r=assistantChoiceData;if(!r){assistantChoiceCancel();return;}
   document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;
+  if(typeof siriNext==='function')setTimeout(siriNext,350);
   const w=W();const data=r.data;const cat=r.categoria;
   if(kind==='spesa'){
     const tipoCosto=tipoCostoDaCategoria(cat);
@@ -2006,6 +2008,7 @@ function renderImpostazioni(el){
       <div class="fld"><label>Utenza 2 — PIN</label><div style="display:flex;gap:6px"><input id="u1_pin" type="password" inputmode="numeric" value="${esc(state.utenti[1].pin)}" style="flex:1"><button type="button" class="mini-btn" onclick="togglePwd('u1_pin')" aria-label="Mostra PIN">👁</button></div></div>
     </div>
   </div>
+  <div class="card" data-cat="spese"><h3>🎙️ Siri — registra spese a voce</h3><div id="siriCard"></div></div>
   <div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap">
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn-sm" onclick="saveSettings()">💾 Salva impostazioni</button>
@@ -2017,6 +2020,7 @@ function renderImpostazioni(el){
     </div>
     <button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="resetAll()">Azzera tutti i dati</button>
   </div>`;
+  siriInitCard();
 }
 function smRowHTML(x){x=x||{nome:'',importo:0,tipo:'spesa'};
   const opt=(v,l)=>`<option value="${v}" ${x.tipo===v?'selected':''}>${l}</option>`;
@@ -2164,6 +2168,131 @@ async function pushCloud(silent){
 function scheduleCloud(){if(!sb||!cloudUser)return;setSync('off','salvataggio…');clearTimeout(saveTimer);saveTimer=setTimeout(()=>pushCloud(),1200);}
 async function cloudSignOut(){if(sb){try{await sb.auth.signOut();}catch(e){}}cloudUser=null;currentUser=null;cloudMode=false;showCloudLogin();}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('cloudlogin').style.display!=='none')cloudSignIn();});
+
+/* ============================================================
+   SIRI — casella in entrata (Comandi iOS → Supabase → app)
+   ============================================================ */
+const SIRI_RPC=SUPA_URL+'/rest/v1/rpc/siri_add';
+let siriQueue=[],siriBusy=false,siriLastCheck=0,siriTokenCache=null;
+function siriDest(d){d=(d||'').toLowerCase();if(/settim|budget/.test(d))return 'spesa';if(/monte/.test(d))return 'monte';if(/bonus|mensil|300|250/.test(d))return 'bonus';return 'chiedi';}
+function siriDestLabel(k){return k==='spesa'?'Spese settimanali':k==='monte'?'Monte bonus':k==='bonus'?'Bonus mensile':'da scegliere';}
+function siriParse(row){
+  const r=parseSpesaVocale(row.testo||'');
+  // le date relative ("ieri") valgono rispetto a quando hai parlato con Siri, non a quando apri l'app
+  const creato=row.created_at?new Date(row.created_at):new Date();
+  const creatoISO=new Date(creato.getTime()-creato.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const off=Math.round((new Date(r.data+'T00:00:00')-new Date(todayISO()+'T00:00:00'))/86400000);
+  r.data=isoShiftDays(creatoISO,off);
+  return r;
+}
+function siriApply(row){
+  const r=siriParse(row);const dest=siriDest(row.dest);
+  if(!(r.importo>0)||!r.descrizione)return {ok:false,testo:row.testo};
+  const cat=r.categoria||categorizza(r.descrizione);const w=W();
+  if(dest==='chiedi'){siriQueue.push({importo:r.importo,descrizione:r.descrizione,categoria:cat,data:r.data});return {ok:true,r,dest,nota:'ti chiedo dove registrarla'};}
+  if(dest==='spesa'){
+    const tipoCosto=tipoCostoDaCategoria(cat);
+    const res=registraSpesaBudget({data:r.data,descrizione:r.descrizione,categoria:cat,importo:r.importo,fatturata:false,tipoCosto,deduzionePerc:dedDefault(tipoCosto)});
+    return {ok:true,r,dest,nota:res.split?(eur(res.info.toMonte)+' oltre budget → monte bonus'):''};
+  }
+  if(dest==='bonus'){
+    const monthly=(w.speseMensili||[]).filter(x=>x.tipo==='bonus');
+    if(monthly.length){
+      const conSaldo=bonusPots().filter(p=>p.id!=='fatture'&&p.saldo>0.001).sort((a,b)=>b.saldo-a.saldo);
+      const pot=conSaldo.length?conSaldo[0].id:monthly[0].id;const nome=(bonusPots().find(p=>p.id===pot)||{nome:'Bonus mensile'}).nome;
+      const res=registraBonusMensile({data:r.data,descrizione:r.descrizione,categoria:cat,importo:r.importo},pot);
+      return {ok:true,r,dest,destNome:nome,nota:res.split?(eur(res.toMonte)+' oltre bonus → monte bonus'):''};
+    }
+  }
+  if(!w.prelieviBonus)w.prelieviBonus=[];
+  w.prelieviBonus.push({id:uid(),data:r.data,pot:'fatture',mese:(r.data||'').slice(0,7),importo:r.importo,note:r.descrizione,categoria:cat});
+  return {ok:true,r,dest:'monte',nota:''};
+}
+async function siriSync(force){
+  if(!sb||!cloudUser||currentUser==null||siriBusy)return;
+  if(!force&&Date.now()-siriLastCheck<15000)return;
+  siriBusy=true;siriLastCheck=Date.now();
+  try{
+    const ut=currentUser;
+    const {data:rows,error}=await sb.from('siri_inbox').select('id,testo,dest,created_at,utenza').eq('utenza',ut).order('created_at',{ascending:true}).limit(50);
+    if(error){if(force)toast('Siri: casella non raggiungibile',true);return;}
+    if(!rows||!rows.length){if(force)toast('Nessuna spesa nuova da Siri');return;}
+    // "prenota" le righe cancellandole: importo solo quelle cancellate davvero (niente doppioni tra dispositivi)
+    const {data:claimed,error:e2}=await sb.from('siri_inbox').delete().in('id',rows.map(x=>x.id)).select('id');
+    if(e2||!claimed)return;
+    const ok=new Set(claimed.map(x=>x.id));
+    if(currentUser!==ut)return;
+    const esiti=rows.filter(x=>ok.has(x.id)).map(siriApply);
+    save();if(typeof render==='function')render();
+    siriShowSummary(esiti);
+  }catch(e){console.warn(e);}
+  finally{siriBusy=false;}
+}
+function siriShowSummary(esiti){
+  if(!esiti.length)return;
+  const box=document.getElementById('asstChoice');if(!box)return;
+  const righe=esiti.map(x=>x.ok
+    ?`<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${eur(x.r.importo)}</b> · ${esc(x.r.descrizione)}<br><span style="font-size:11px;color:var(--muted)">${catEmoji(x.r.categoria)} ${esc(x.r.categoria||'')} · ${fmtDate(x.r.data)} → ${esc(x.destNome||siriDestLabel(x.dest))}${x.nota?' · '+esc(x.nota):''}</span></div>`
+    :`<div style="padding:7px 0;border-bottom:1px solid var(--line);color:var(--amber)">⚠️ Non ho capito: “${esc(x.testo)}”<br><span style="font-size:11px;color:var(--muted)">inseriscila a mano</span></div>`).join('');
+  const n=esiti.filter(x=>x.ok).length;
+  box.innerHTML=`<h4>🎙️ Spese arrivate da Siri</h4><div class="sub">${n} ${n===1?'spesa':'spese'} dalla casella in entrata</div>
+    <div style="font-size:13px;max-height:46vh;overflow:auto;margin-bottom:12px">${righe}</div>
+    <button type="button" class="opt" onclick="siriSummaryOk()"><span class="ico">👍</span><span>Ok${siriQueue.length?'<span class="cap">ora scegli dove registrare le '+siriQueue.length+' in sospeso</span>':''}</span></button>`;
+  box.classList.add('open');document.getElementById('asstChoiceBack').classList.add('open');
+}
+function siriSummaryOk(){closeSplitPopup();}
+function siriNext(){
+  if(!siriQueue.length)return;
+  const box=document.getElementById('asstChoice');if(box&&box.classList.contains('open'))return;
+  assistantRegister(siriQueue.shift());
+}
+/* --- codice personale per il Comando --- */
+function siriNewToken(){const a=new Uint8Array(18);crypto.getRandomValues(a);return Array.from(a,b=>'abcdefghijkmnpqrstuvwxyz23456789'[b%32]).join('');}
+async function siriLoadToken(){
+  if(!sb||!cloudUser)return null;
+  try{const {data,error}=await sb.from('siri_tokens').select('token').eq('user_id',cloudUser.id).eq('utenza',currentUser).maybeSingle();if(error)return {err:error.message};siriTokenCache=data?data.token:'';return data?data.token:'';}catch(e){return {err:'offline'};}
+}
+async function siriGenToken(){
+  if(!sb||!cloudUser){toast('Serve l\'accesso cloud',true);return;}
+  if(siriTokenCache&&!confirmInline())return;
+  const t=siriNewToken();
+  try{
+    await sb.from('siri_tokens').delete().eq('user_id',cloudUser.id).eq('utenza',currentUser);
+    const {error}=await sb.from('siri_tokens').insert({token:t,user_id:cloudUser.id,utenza:currentUser});
+    if(error){toast('Errore: '+error.message,true);return;}
+    siriTokenCache=t;toast('Codice Siri creato');siriRenderCard();
+  }catch(e){toast('Errore di connessione',true);}
+}
+let siriConfirmAt=0;
+function confirmInline(){if(Date.now()-siriConfirmAt<4000)return true;siriConfirmAt=Date.now();toast('Il vecchio Comando smetterà di funzionare: premi di nuovo per confermare',true);return false;}
+function siriCopy(txt,lbl){try{navigator.clipboard.writeText(txt).then(()=>toast((lbl||'Testo')+' copiato'),()=>toast('Copia non riuscita',true));}catch(e){toast('Copia non riuscita',true);}}
+function siriCardHTML(){
+  if(!cloudMode||!cloudUser)return `<div class="desc">Disponibile solo con l'accesso cloud attivo.</div>`;
+  const t=siriTokenCache;
+  if(t===null)return `<div class="desc">Caricamento…</div>`;
+  if(t&&t.err)return `<div class="desc" style="color:var(--amber)">Casella Siri non ancora attiva sul cloud (${esc(t.err)}).</div>`;
+  if(!t)return `<div class="desc">Crea il tuo codice personale: serve al Comando di iOS per scrivere nella tua casella in entrata (e a nessun altro).</div><button class="btn-sm" onclick="siriGenToken()">🔑 Crea codice Siri</button>`;
+  const row=(lbl,val,show)=>`<div style="display:flex;gap:8px;align-items:center;margin:6px 0"><div style="flex:0 0 92px;font-size:12px;color:var(--muted)">${lbl}</div><code style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;background:var(--panel2);padding:6px 8px;border-radius:7px">${esc(show||val)}</code><button class="mini-btn" onclick="siriCopy('${val}','${lbl}')" aria-label="Copia ${lbl}">⧉</button></div>`;
+  return `<div class="desc">Dì <b>“Ehi Siri, Spesa HopHop”</b>, detta la spesa (es. “45 euro benzina”) e scegli dove registrarla. Arriva qui alla prossima apertura dell'app.</div>
+    ${row('Indirizzo',SIRI_RPC)}${row('apikey',SUPA_KEY)}${row('Codice',t,t.slice(0,4)+'••••••••'+t.slice(-3))}
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:600">📲 Come creare il Comando (una volta sola)</summary>
+    <ol style="font-size:13px;line-height:1.65;padding-left:20px;margin-top:8px">
+      <li>Apri l'app <b>Comandi</b> → <b>+</b> → rinomina il comando in <b>Spesa HopHop</b>.</li>
+      <li>Aggiungi <b>Chiedi input</b>: tipo <i>Testo</i>, domanda <i>“Cosa hai speso?”</i>.</li>
+      <li>Aggiungi <b>Elenco</b> con 4 voci: <i>Settimanale</i>, <i>Monte bonus</i>, <i>Bonus mensile</i>, <i>Decido dopo</i>.</li>
+      <li>Aggiungi <b>Scegli dall'elenco</b>, domanda <i>“Da dove?”</i>.</li>
+      <li>Aggiungi <b>Ottieni contenuti dell'URL</b>: incolla l'<b>Indirizzo</b> qui sopra. Tocca la freccia ▸: Metodo <b>POST</b>; Intestazioni → aggiungi <b>apikey</b> = la apikey qui sopra; Corpo richiesta <b>JSON</b> con 3 campi testo:
+        <br>• <b>p_token</b> = il tuo Codice
+        <br>• <b>p_testo</b> = variabile <i>Input fornito</i>
+        <br>• <b>p_dest</b> = variabile <i>Elemento scelto</i></li>
+      <li>Aggiungi <b>Se</b>: <i>Contenuti dell'URL</i> <b>contiene</b> <i>registrata</i> → <b>Pronuncia testo</b> “Fatto, spesa registrata”; Altrimenti → <b>Pronuncia testo</b> “Non sono riuscito a inviarla”.</li>
+      <li>Prova: <b>“Ehi Siri, Spesa HopHop”</b>. Puoi anche assegnarlo al tasto Azione o a un widget.</li>
+    </ol></details>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn-sm btn-ghost" onclick="siriSync(true)">🔄 Controlla ora</button><button class="btn-sm btn-ghost" onclick="siriGenToken()">♻️ Rigenera codice</button></div>`;
+}
+function siriRenderCard(){const el=document.getElementById('siriCard');if(el)el.innerHTML=siriCardHTML();}
+async function siriInitCard(){siriTokenCache=null;siriRenderCard();if(!cloudMode||!cloudUser)return;const r=await siriLoadToken();if(r&&r.err)siriTokenCache=r;siriRenderCard();}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(()=>siriSync(),600);});
 
 applyTheme(localStorage.getItem(TKEY)||'dark');
 applyFontScale(localStorage.getItem(FSKEY)||'0');
