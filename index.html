@@ -404,6 +404,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
       <button data-v="programmati"><span class="ic">🗓️</span><span>Movimenti programmati</span></button>
       <button data-v="deducibili"><span class="ic">🧮</span><span>Deducibilità</span></button>
       <button data-v="bonus"><span class="ic">🎁</span><span>Bonus</span></button>
+      <button data-v="straordinario"><span class="ic">⭐</span><span>Fondo straordinario</span></button>
       <button data-v="proiezione"><span class="ic">📈</span><span>Proiezione</span></button>
       <button data-v="stat"><span class="ic">📊</span><span>Statistiche</span></button>
       <button data-v="impostazioni"><span class="ic">⚙︎</span><span>Impostazioni</span></button>
@@ -481,7 +482,7 @@ function newWorkspace(){return{
   ],
   bonusProgressivo:0, bonusRiserva:0, bonusFreeze:0, bonusIniData:'', prelieviBonus:[], bonusMensiliInizio:null, bonusFattureInizio:null,
   proiezione:{quotaOrdinaria:30000, accantonaAnnoSucc:20000, speseGrandi:[{nome:'Auto',importo:9300}], scenari:[100000,85000,80000,75000], target:85000},
-  fatture:[], spese:[], movimenti:[], programmati:[], entrateMonte:[]
+  fatture:[], spese:[], movimenti:[], programmati:[], entrateMonte:[], speseStraord:[]
 };}
 function defaults(){return{utenti:[{nome:'Utenza 1',pin:'0000'},{nome:'Utenza 2',pin:'0000'}],workspaces:[seedWorkspace2026(),newWorkspace()]};}
 /* Storico 2026 importato dal file Excel PROIEZIONE 2026 (utenza 1, forfettario) */
@@ -689,7 +690,7 @@ function initApp(){
 function toggleDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.toggle('open');if(bd)bd.classList.toggle('open');}
 function closeDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.remove('open');if(bd)bd.classList.remove('open');}
 function setTopTitle(b){const t=document.getElementById('topbarTitle');if(t&&b){const sp=b.querySelector('span:not(.ic)');if(sp)t.textContent=sp.textContent;}}
-function render(){({dashboard:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:renderSpese,programmati:renderProgrammati,bonus:renderBonus,proiezione:renderProiezione,stat:renderStat,deducibili:renderDeducibili,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
+function render(){({dashboard:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:renderSpese,programmati:renderProgrammati,bonus:renderBonus,straordinario:renderStraordinario,proiezione:renderProiezione,stat:renderStat,deducibili:renderDeducibili,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
 function pageHead(title,sub){const w=W();return `<div class="page-head"><div><h2>${title}</h2><p>${sub}</p></div><span class="regime-pill">${esc(state.utenti[currentUser].nome)} · ${w.regimeAttivo} · ${w.anno}</span></div>`;}
 function goTo(v){view=v;document.querySelectorAll('#nav button').forEach(x=>{const on=x.dataset.v===v;x.classList.toggle('active',on);if(on)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current');});document.querySelectorAll('.bottomnav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));setTopTitle(document.querySelector('#nav button[data-v="'+v+'"]'));closeDrawer();render();}
 
@@ -775,14 +776,25 @@ function mesiBonusList(){const w=W();const y=w.anno;const now=new Date();let sta
   const list=[];for(let m=startM;m<=12;m++)list.push(y+'-'+String(m).padStart(2,'0'));return list;}
 function mesiBonus(){return mesiBonusList().length;}
 function curBonusMese(){const w=W();const list=mesiBonusList();const now=new Date();if(w.anno===now.getFullYear()){const cm=curMonthKey();if(list.includes(cm))return cm;}return w.anno<now.getFullYear()?list[list.length-1]:list[0];}
+/* Ripartizione del bonus di una fattura: anno in corso / anno successivo / fondo straordinario */
+function fBonusProssimo(f){return Math.max(0,+(f&&f.bonusProssimo)||0);}
+function fBonusStraord(f){return Math.max(0,+(f&&f.bonusStraord)||0);}
+function fBonusAnno(f){return (+(f&&f.bonus)||0)-fBonusProssimo(f)-fBonusStraord(f);}
+function riportoAnnoPrec(){const w=W();const yp=String(w.anno-1);const iniDa=w.bonusIniData||'';return (w.fatture||[]).filter(f=>(f.data||'').slice(0,4)===yp&&(!iniDa||(f.data||'')>iniDa)).reduce((s,f)=>s+fBonusProssimo(f),0);}
+function accantonatoProssimo(){return fattureAnno().reduce((s,f)=>s+fBonusProssimo(f),0);}
+function fondoStraord(){
+  const w=W();const acc=(w.fatture||[]).reduce((s,f)=>s+fBonusStraord(f),0);const sp=w.speseStraord||[];
+  const speso=sp.filter(x=>x.effettuata).reduce((s,x)=>s+(+x.importo||0),0);const impegnato=sp.filter(x=>!x.effettuata).reduce((s,x)=>s+(+x.importo||0),0);
+  return {accantonato:acc,speso,impegnato,saldo:acc-speso,libero:acc-speso-impegnato};
+}
 function bonusPots(){
   const w=W();const prel=prelieviAnno();const cm=curBonusMese();
   const prelPot=id=>prel.filter(p=>p.pot===id).reduce((s,p)=>s+p.importo,0);
   const iniDa=w.bonusIniData||'';
-  const bonusFatture=fattureAnno().reduce((s,f)=>s+((!iniDa||(f.data||'')>iniDa)?(f.bonus||0):0),0);
+  const bonusFatture=fattureAnno().reduce((s,f)=>s+((!iniDa||(f.data||'')>iniDa)?fBonusAnno(f):0),0)+riportoAnnoPrec();
   const entrateM=(w.entrateMonte||[]).filter(e=>inAnno(e.data)).reduce((s,e)=>s+(+e.importo||0),0);
   const pots=[
-    {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture+entrateM,prelievi:prelPot('fatture')+prelPot('iniziale'),info:'riserva iniziale + bonus delle fatture'}
+    {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture+entrateM,prelievi:prelPot('fatture')+prelPot('iniziale'),info:'riserva iniziale + bonus delle fatture (+ riporto anno precedente)'}
   ];
   (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{const spMese=prel.filter(p=>p.pot===x.id&&p.mese===cm).reduce((s,p)=>s+p.importo,0);pots.push({id:x.id,nome:x.nome,iniziale:0,accrediti:(x.importo||0),prelievi:spMese,mensile:x.importo,mese:cm,info:eur(x.importo)+'/mese · '+monthLabel(cm)});});
   pots.forEach(p=>p.saldo=p.iniziale+p.accrediti-p.prelievi);
@@ -790,16 +802,16 @@ function bonusPots(){
 }
 function monteStoricoFineMese(){
   const w=W();const y=w.anno;const iniDa=w.bonusIniData||'';const riserva=+w.bonusProgressivo||0;
-  const fat=fattureAnno();const entM=(w.entrateMonte||[]).filter(e=>inAnno(e.data));
+  const fat=fattureAnno();const entM=(w.entrateMonte||[]).filter(e=>inAnno(e.data));const riporto=riportoAnnoPrec();
   const prelMonte=prelieviAnno().filter(p=>p.pot==='fatture'||p.pot==='iniziale');
   const now=new Date();
   const curPref=(y===now.getFullYear())?(y+'-'+String(now.getMonth()+1).padStart(2,'0')):(y>now.getFullYear()?'0000-00':'9999-99');
   const out=[];
   for(let m=1;m<=12;m++){
     const pref=y+'-'+String(m).padStart(2,'0');const end=pref+'-31';
-    const entrate=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'').slice(0,7)===pref)?(f.bonus||0):0),0)+entM.reduce((s,e)=>s+(((e.data||'').slice(0,7)===pref)?(+e.importo||0):0),0);
+    const entrate=(m===1?riporto:0)+fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'').slice(0,7)===pref)?fBonusAnno(f):0),0)+entM.reduce((s,e)=>s+(((e.data||'').slice(0,7)===pref)?(+e.importo||0):0),0);
     const uscite=prelMonte.reduce((s,p)=>s+(((p.data||'').slice(0,7)===pref)?p.importo:0),0);
-    const accr=fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'')<=end)?(f.bonus||0):0),0)+entM.reduce((s,e)=>s+(((e.data||'')<=end)?(+e.importo||0):0),0);
+    const accr=riporto+fat.reduce((s,f)=>s+(((!iniDa||(f.data||'')>iniDa)&&(f.data||'')<=end)?fBonusAnno(f):0),0)+entM.reduce((s,e)=>s+(((e.data||'')<=end)?(+e.importo||0):0),0);
     const prel=prelMonte.reduce((s,p)=>s+(((p.data||'')<=end)?p.importo:0),0);
     out.push({mese:pref,label:MESI[m-1],entrate,uscite,monte:riserva+accr-prel,corrente:(pref===curPref),passato:(pref<curPref),futuro:(pref>curPref)});
   }
@@ -941,7 +953,7 @@ function renderFatture(el){
       <td class="num sm-hide" data-label="Compenso">${eur(f.compenso)}</td><td class="num sm-hide" data-label="Rivalsa" style="color:var(--muted)">${eur(f.rivalsa||0)}</td>
       <td class="num" data-label="Totale"><b>${eur(f.totaleFattura)}</b></td>
       <td class="num" data-label="Da versare" style="color:var(--amber)">${eur(fVersare(f))}</td>
-      <td class="num" data-label="Bonus" style="color:var(--violet)">${eur(f.bonus)}</td>
+      <td class="num" data-label="Bonus" style="color:var(--violet)">${eur(f.bonus)}${(fBonusProssimo(f)||fBonusStraord(f))?`<div style="font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">${fBonusProssimo(f)?'↪ '+((f.data||'').slice(0,4)*1+1)+' '+eur(fBonusProssimo(f)):''}${fBonusProssimo(f)&&fBonusStraord(f)?' · ':''}${fBonusStraord(f)?'⭐ '+eur(fBonusStraord(f)):''}</div>`:''}</td>
       <td data-label="Stato">${f.incassata?'<span class="tag ok">Incassata</span>':'<span class="tag wait">Emessa</span>'}</td>
       <td data-label="" class="sm-actions" style="white-space:nowrap"><button class="mini-btn" onclick="openFattura('${f.id}')" title="Modifica">✎<span class="btn-txt"> Modifica</span></button><button class="mini-btn del" onclick="delFattura('${f.id}')" title="Elimina">🗑</button></td></tr>`).join('')}
     </tbody></table>`}
@@ -973,6 +985,17 @@ function openFattura(id){
       <div id="allocList"></div>
       <button class="btn-sm btn-ghost" style="margin-top:4px" onclick="addAllocRow()">+ Aggiungi mese</button>
       <div class="bonus-badge">🎁 <span>Bonus residuo di questa fattura</span><b id="bonusVal">€ 0,00</b></div>
+      <h3 style="font-size:13px;margin:18px 0 4px;color:var(--muted)">🎯 Dove va il bonus</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Di default va tutto nel monte bonus dell'anno in corso. Puoi spostarne una parte all'anno successivo o nel fondo per le spese straordinarie (che resta fuori da tutti i resoconti).</p>
+      <div class="form-grid">
+        <div class="fld"><label id="f_lblProssimo">All'anno successivo (€)</label><input id="f_bProssimo" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00" value="${f&&f.bonusProssimo?f.bonusProssimo:''}" oninput="recalcModal()"></div>
+        <div class="fld"><label>⭐ Al fondo straordinario (€)</label><input id="f_bStraord" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00" value="${f&&f.bonusStraord?f.bonusStraord:''}" oninput="recalcModal()"></div>
+      </div>
+      <div class="calc-box" style="margin-top:10px">
+        <div class="calc-row"><span class="lbl" id="f_lblAnno">Monte bonus anno in corso</span><b id="f_bAnnoVal" style="color:var(--violet)">€ 0,00</b></div>
+        <div class="calc-row"><span class="lbl" id="f_lblProssimo2">Anno successivo</span><span id="f_bProssimoVal">€ 0,00</span></div>
+        <div class="calc-row"><span class="lbl">⭐ Fondo straordinario</span><span id="f_bStraordVal">€ 0,00</span></div>
+      </div>
     </div>
     <div class="modal-foot"><button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button><button class="btn-sm" onclick="saveFattura('${f?f.id:''}')">Salva fattura</button></div>`;
   document.getElementById('overlay').classList.add('show');
@@ -1009,6 +1032,12 @@ function recalcModal(){
    <div class="calc-row"><span class="lbl">Netto disponibile (tuo, da ripartire)</span><span style="color:var(--green)">${eur(a.netto)}</span></div>`;
   let allocated=0;document.querySelectorAll('#allocList .alloc-row input').forEach(i=>allocated+=(+i.value||0));
   const bonus=a.netto-allocated;const bv=document.getElementById('bonusVal');bv.textContent=eur(bonus);bv.style.color=bonus<-0.001?'var(--red)':'var(--violet)';
+  const yy=+((document.getElementById('f_data').value||todayISO()).slice(0,4));
+  const pr=Math.max(0,+(document.getElementById('f_bProssimo')||{}).value||0),st=Math.max(0,+(document.getElementById('f_bStraord')||{}).value||0);
+  const anno=bonus-pr-st;const set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
+  set('f_lblProssimo','All\'anno successivo · '+(yy+1)+' (€)');set('f_lblAnno','Monte bonus '+yy);set('f_lblProssimo2','Monte bonus '+(yy+1));
+  set('f_bAnnoVal',eur(anno));set('f_bProssimoVal',eur(pr));set('f_bStraordVal',eur(st));
+  const av=document.getElementById('f_bAnnoVal');if(av)av.style.color=anno<-0.001?'var(--red)':'var(--violet)';
 }
 function saveFattura(id){
   const w=W();const compenso=+document.getElementById('f_compenso').value||0;const regime=document.getElementById('f_regime').value;
@@ -1016,11 +1045,13 @@ function saveFattura(id){
   const acc=calcAccantonamenti(compenso,regime);const allocazioni=[];let allocated=0;
   document.querySelectorAll('#allocList .alloc-row').forEach(r=>{const mese=r.querySelector('select').value;const imp=+r.querySelector('input').value||0;if(imp>0){allocazioni.push({mese,importo:imp});allocated+=imp;}});
   const bonus=acc.netto-allocated;if(bonus<-0.01){toast('Le allocazioni superano il netto disponibile',true);return;}
+  const bonusProssimo=Math.max(0,+document.getElementById('f_bProssimo').value||0),bonusStraord=Math.max(0,+document.getElementById('f_bStraord').value||0);
+  if(bonus-bonusProssimo-bonusStraord<-0.01){toast('Anno successivo + fondo straordinario superano il bonus della fattura',true);return;}
   const rec={id:id||uid(),numero:document.getElementById('f_num').value.trim(),data:document.getElementById('f_data').value||todayISO(),
     cliente:document.getElementById('f_cliente').value.trim(),descrizione:document.getElementById('f_desc').value.trim(),
     compenso,regime,rivalsa:acc.rivalsa,iva:acc.iva,totaleFattura:acc.totaleFattura,versareConto:acc.versareConto,
     incassata:document.getElementById('f_incassata').value==='1',
-    acc:{imposte:acc.imposte,soggettivo:acc.soggettivo,integrativo:acc.integrativo,iva:acc.iva,versareConto:acc.versareConto,totale:acc.versareConto},netto:acc.netto,allocazioni,bonus};
+    acc:{imposte:acc.imposte,soggettivo:acc.soggettivo,integrativo:acc.integrativo,iva:acc.iva,versareConto:acc.versareConto,totale:acc.versareConto},netto:acc.netto,allocazioni,bonus,bonusProssimo,bonusStraord};
   if(id){const i=w.fatture.findIndex(f=>f.id===id);w.fatture[i]=rec;}else w.fatture.push(rec);
   save();closeModal();render();toast('Fattura salvata');
 }
@@ -1189,6 +1220,64 @@ function renderSpese(el){
   <div class="card" data-cat="spese"><div class="card-head"><h3>🛒 Registro spese</h3><div><span style="font-size:12px;color:var(--muted);margin-right:10px">Budget/settimana: <b style="color:var(--txt)">${eur(budget)}</b></span><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div></div>
     ${weeklyRegistroHTML()}
   </div>`;
+}
+
+/* ============ FONDO STRAORDINARIO (fuori da tutti i resoconti) ============ */
+function renderStraordinario(el){
+  const w=W();const fs=fondoStraord();
+  const accFat=(w.fatture||[]).filter(f=>fBonusStraord(f)>0).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const sp=(w.speseStraord||[]).slice().sort((a,b)=>(a.effettuata===b.effettuata?0:a.effettuata?1:-1)||(b.data||'').localeCompare(a.data||''));
+  const stato=x=>x.effettuata
+    ?`<button class="tag ok" style="border:none;cursor:pointer" onclick="toggleStraord('${x.id}')" title="Segna come da effettuare">✓ Effettuata</button>`
+    :`<button class="tag wait" style="border:none;cursor:pointer" onclick="toggleStraord('${x.id}')" title="Segna come effettuata">⏳ Da effettuare</button>`;
+  el.innerHTML=`
+  ${pageHead('Fondo straordinario','Bonus messo da parte per spese straordinarie: resta fuori da monte, statistiche e resoconti')}
+  <div class="kpi-grid">
+    <div class="kpi accent"><div class="lbl">Accantonato dalle fatture</div><div class="val" style="font-size:22px">${eur(fs.accantonato)}</div><div class="sub">${num(accFat.length)} fatture</div></div>
+    <div class="kpi"><div class="lbl">Speso (effettuate)</div><div class="val" style="font-size:22px;color:var(--red)">${eur(fs.speso)}</div><div class="sub">saldo reale ${eur(fs.saldo)}</div></div>
+    <div class="kpi"><div class="lbl">Impegnato (da effettuare)</div><div class="val" style="font-size:22px;color:var(--amber)">${eur(fs.impegnato)}</div><div class="sub">${num(sp.filter(x=>!x.effettuata).length)} spese in programma</div></div>
+    <div class="kpi green"><div class="lbl">Ancora libero</div><div class="val" style="font-size:22px;color:${fs.libero<0?'var(--red)':'var(--green)'}">${eur(fs.libero)}</div><div class="sub">tolte effettuate e in programma</div></div>
+  </div>
+  <div class="card" data-cat="bonus"><div class="card-head"><h3>⭐ Spese straordinarie</h3><button class="btn-sm" onclick="openStraord()">+ Nuova spesa</button></div>
+    ${sp.length?`<table class="rtable"><thead><tr><th>Data</th><th>Descrizione</th><th>Stato</th><th class="num">Importo</th><th></th></tr></thead><tbody>
+    ${sp.map(x=>`<tr><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Descrizione"><b>${esc(x.descrizione||'—')}</b></td><td data-label="Stato">${stato(x)}</td><td class="num" data-label="Importo"><b>${eur(x.importo)}</b></td>
+      <td data-label="" style="white-space:nowrap"><button class="mini-btn" onclick="openStraord('${x.id}')" title="Modifica">✎</button><button class="mini-btn del" onclick="delStraord('${x.id}')" title="Elimina">🗑</button></td></tr>`).join('')}
+    </tbody></table>`:`<div class="empty">Nessuna spesa straordinaria. Aggiungi quelle già fatte o quelle che prevedi di fare.</div>`}
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Tocca lo stato per passare da “da effettuare” a “effettuata”. Queste spese non compaiono in spese settimanali, monte bonus, statistiche o dashboard.</div>
+  </div>
+  <div class="card" data-cat="income"><h3>🧾 Accantonamenti dalle fatture</h3>
+    <div class="desc">La quota “fondo straordinario” la scegli nella fattura, nella sezione “Dove va il bonus”.</div>
+    ${accFat.length?`<table class="rtable"><thead><tr><th>Fattura</th><th>Cliente</th><th class="num">Al fondo</th></tr></thead><tbody>
+    ${accFat.map(f=>`<tr onclick="openFattura('${f.id}')" style="cursor:pointer"><td data-label="Fattura">${esc(f.numero||'—')} · ${fmtDate(f.data)}</td><td data-label="Cliente">${esc(f.cliente||'—')}</td><td class="num" data-label="Al fondo" style="color:var(--violet)"><b>${eur(fBonusStraord(f))}</b></td></tr>`).join('')}
+    </tbody></table>`:`<div class="empty">Ancora nessuna fattura ha destinato bonus al fondo.</div>`}
+  </div>`;
+}
+function openStraord(editId){
+  const w=W();const ex=editId?(w.speseStraord||[]).find(x=>x.id===editId):null;
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>${ex?'Modifica spesa straordinaria':'Nuova spesa straordinaria'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><input type="hidden" id="ss_edit" value="${ex?esc(editId):''}"><div class="form-grid">
+      <div class="fld"><label>Data</label><input id="ss_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
+      <div class="fld"><label>Importo (€)</label><input id="ss_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
+      <div class="fld"><label>Stato</label><select id="ss_stato"><option value="0" ${ex&&ex.effettuata?'':'selected'}>⏳ Da effettuare</option><option value="1" ${ex&&ex.effettuata?'selected':''}>✓ Effettuata</option></select></div>
+      <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="ss_desc" placeholder="es. nuovo computer, riparazione auto, viaggio…" value="${ex?esc(ex.descrizione||''):''}"></div>
+    </div><div style="font-size:11px;color:var(--muted);margin-top:4px">Disponibile nel fondo: <b>${eur(fondoStraord().libero+(ex?(+ex.importo||0):0))}</b></div></div>
+    <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delStraord('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="saveStraord()">${ex?'Salva modifiche':'Salva'}</button></div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+function saveStraord(){
+  const imp=+document.getElementById('ss_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
+  const w=W();if(!w.speseStraord)w.speseStraord=[];
+  const rec={data:document.getElementById('ss_data').value||todayISO(),importo:imp,descrizione:document.getElementById('ss_desc').value.trim(),effettuata:document.getElementById('ss_stato').value==='1'};
+  const editId=(document.getElementById('ss_edit')||{}).value;
+  if(editId){const x=w.speseStraord.find(y=>y.id===editId);if(x)Object.assign(x,rec);}else w.speseStraord.push(Object.assign({id:uid()},rec));
+  save();closeModal();render();
+  const lib=fondoStraord().libero;toast(lib<-0.001?'Salvata · attenzione: superi il fondo di '+eur(-lib):(editId?'Spesa aggiornata':'Spesa straordinaria aggiunta'),lib<-0.001);
+}
+function toggleStraord(id){const x=(W().speseStraord||[]).find(y=>y.id===id);if(!x)return;x.effettuata=!x.effettuata;save();render();toast(x.effettuata?'Segnata come effettuata':'Segnata come da effettuare');}
+function delStraord(id){
+  const w=W();const i=(w.speseStraord||[]).findIndex(x=>x.id===id);if(i<0)return;const it=w.speseStraord[i];w.speseStraord.splice(i,1);save();render();
+  showUndo('Spesa straordinaria eliminata',()=>{const ww=W();if(!ww.speseStraord)ww.speseStraord=[];ww.speseStraord.splice(Math.min(i,ww.speseStraord.length),0,it);save();render();toast('Ripristinata');});
 }
 
 /* ============ MOVIMENTI PROGRAMMATI (futuri, da registrare) ============ */
@@ -1572,6 +1661,7 @@ function renderBonus(el){
       <div class="lbl">Monte bonus disponibile</div>
       <div class="big" style="color:${potFat.saldo<0?'var(--red)':'var(--violet)'}">${eur(potFat.saldo)}</div>
       <div style="font-size:12px;color:var(--muted)">Riserva già accantonata + bonus delle fatture emesse da quando usi l'app, al netto degli utilizzi. È da qui che dipende quanto potrai spendere nei prossimi mesi. I bonus mensili sono gestiti a parte.</div>
+      ${(()=>{const rp=riportoAnnoPrec(),ap=accantonatoProssimo(),fs=fondoStraord();const bits=[];if(rp>0)bits.push('↩ Riporto dal '+(w.anno-1)+': <b>'+eur(rp)+'</b> (incluso)');if(ap>0)bits.push('↪ Accantonato per il '+(w.anno+1)+': <b>'+eur(ap)+'</b> (escluso)');if(fs.accantonato>0)bits.push('⭐ Fondo straordinario: <b>'+eur(fs.saldo)+'</b> <a href="#" onclick="goTo(\'straordinario\');return false" style="color:var(--accent)">apri</a>');return bits.length?'<div style="font-size:12px;margin-top:8px;line-height:1.7">'+bits.join('<br>')+'</div>':'';})()}
       <div class="saldo-set"><label style="font-size:12px;color:var(--muted)">Bonus già accantonato (riserva iniziale, parte del monte)</label><input type="number" inputmode="decimal" step="0.01" id="bonusIni" value="${w.bonusProgressivo||0}"><button class="mini-btn" onclick="setBonusProgressivo()">Salva</button></div>
     </div>
     <div class="conto-side">
