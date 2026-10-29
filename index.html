@@ -708,6 +708,11 @@ function movimentiAnno(){return (W().movimenti||[]).filter(m=>inAnno(m.data));}
 function prelieviAnno(){return (W().prelieviBonus||[]).filter(p=>inAnno(p.data));}
 function speseAnno(){return (W().spese||[]).filter(s=>inAnno(s.data));}
 function isMonthlyPot(id){return (W().speseMensili||[]).some(x=>x.tipo==='bonus'&&x.id===id);}
+/* Voci del fabbisogno con validità nel tempo: importo = valore iniziale, periodi = variazioni "dal mese" in poi */
+function smPeriodi(x){return (x&&x.periodi||[]).filter(p=>p&&/^\d{4}-\d{2}$/.test(p.dal)).slice().sort((a,b)=>a.dal.localeCompare(b.dal));}
+function smVal(x,mese){mese=mese||curMonthKey();let v=+(x&&x.importo)||0;smPeriodi(x).forEach(p=>{if(p.dal<=mese)v=+p.importo||0;});return v;}
+function smStoricoTxt(x){const ps=smPeriodi(x);if(!ps.length)return '';const parts=['fino a '+monthLabel(isoShiftMonth(ps[0].dal,-1)).toLowerCase()+' '+eur(+x.importo||0)];ps.forEach(p=>parts.push('da '+monthLabel(p.dal).toLowerCase()+' '+eur(+p.importo||0)));return parts.join(' · ');}
+function isoShiftMonth(k,n){const y=+k.slice(0,4),m=+k.slice(5,7)-1+n;const d=new Date(y,m,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
 /* Spese dei bonus "oltre i 2500": prelievi dai monti iniziale/fatture (NON dai bonus mensili tipo1/tipo2, che rientrano nei 2500). Per mese di sostenimento (data). */
 function speseFuori2500PerMese(){const map={};prelieviAnno().forEach(p=>{if(isMonthlyPot(p.pot))return;const k=(p.data||'').slice(0,7);if(k)map[k]=(map[k]||0)+p.importo;});return map;}
 function speseFuori2500Mese(mese){return prelieviAnno().filter(p=>!isMonthlyPot(p.pot)&&(p.data||'').slice(0,7)===mese).reduce((s,p)=>s+p.importo,0);}
@@ -796,7 +801,7 @@ function bonusPots(){
   const pots=[
     {id:'fatture',nome:'Monte bonus',iniziale:w.bonusProgressivo||0,accrediti:bonusFatture+entrateM,prelievi:prelPot('fatture')+prelPot('iniziale'),info:'riserva iniziale + bonus delle fatture (+ riporto anno precedente)'}
   ];
-  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{const spMese=prel.filter(p=>p.pot===x.id&&p.mese===cm).reduce((s,p)=>s+p.importo,0);pots.push({id:x.id,nome:x.nome,iniziale:0,accrediti:(x.importo||0),prelievi:spMese,mensile:x.importo,mese:cm,info:eur(x.importo)+'/mese · '+monthLabel(cm)});});
+  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(x=>{const spMese=prel.filter(p=>p.pot===x.id&&p.mese===cm).reduce((s,p)=>s+p.importo,0);const v=smVal(x,cm);pots.push({id:x.id,nome:x.nome,iniziale:0,accrediti:v,prelievi:spMese,mensile:v,mese:cm,info:eur(v)+'/mese · '+monthLabel(cm)});});
   pots.forEach(p=>p.saldo=p.iniziale+p.accrediti-p.prelievi);
   return pots;
 }
@@ -822,7 +827,7 @@ function monteStoricoFineMese(){
 function statoMeseBodyHTML(mese){
   const w=W();const cm=curMonthKey();
   const budgetWk=w.budgetSettimanale;
-  const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+x.importo,0)||budgetWk*4;
+  const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+smVal(x,mese||cm),0)||budgetWk*4;
   const monthlyBonuses=(w.speseMensili||[]).filter(x=>x.tipo==='bonus');
   const donutColors=['var(--s2)','var(--s4)'];
   const pots=bonusPots();
@@ -830,7 +835,7 @@ function statoMeseBodyHTML(mese){
   let wkSpent,wkBudget,wkLabel;
   if(mese===cm){const wk=weekKey(todayISO());wkSpent=w.spese.filter(s=>weekKey(s.data)===wk).reduce((a,s)=>a+s.importo,0);wkBudget=budgetWk;wkLabel='🛒 Settimana corrente';}
   else{wkSpent=spesePerMese(mese);wkBudget=budgetSettMensile;wkLabel='🛒 Budget settimanale (mese)';}
-  const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===mese).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:mb.importo};});
+  const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===mese).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:smVal(mb,mese)};});
   return `<div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:space-around;align-items:start;margin:8px 0 2px">
     <div style="text-align:center;min-width:118px">${svgDonut(wkBudget?wkSpent/wkBudget:0,wkSpent>wkBudget?'var(--red)':'var(--s1)',eur0(wkBudget-wkSpent),'disp. / '+eur0(wkBudget))}<div style="font-size:12px;color:var(--muted);margin-top:2px">${wkLabel}</div></div>
     ${bonStato.map((b,i)=>`<div style="text-align:center;min-width:118px">${svgDonut(b.budget?b.speso/b.budget:0,b.speso>b.budget?'var(--red)':(donutColors[i]||'var(--s6)'),eur0(b.budget-b.speso),'disp. / '+eur0(b.budget))}<div style="font-size:12px;color:var(--muted);margin-top:2px">🎁 ${esc(b.nome)}</div></div>`).join('')}
@@ -857,10 +862,10 @@ function renderDashboard(el){
   const totFuoriD=moKeysD.reduce((s,k)=>s+moMapD[k],0);const mediaFuoriD=moKeysD.length?totFuoriD/moKeysD.length:0;const fuoriCorrD=moMapD[cm]||0;
   const fab=w.fabbisognoMensile||0;const cbm=curBonusMese();
   const monthlyBonuses=(w.speseMensili||[]).filter(x=>x.tipo==='bonus');
-  const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+x.importo,0)||budgetWk*4;
+  const budgetSettMensile=(w.speseMensili||[]).filter(x=>x.tipo==='settimanale').reduce((s,x)=>s+smVal(x,cm),0)||budgetWk*4;
   const speseMeseCorr=spesePerMese(cm);
   const progRow=(label,speso,bdg)=>{const pc=bdg?Math.min(100,speso/bdg*100):0;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${label}</span><span style="color:${speso>bdg?'var(--red)':'var(--muted)'}">${eur(speso)} / ${eur(bdg)}</span></div><div class="prog ${pc>=100?'over':pc>=80?'warn':''}"><span style="width:${pc}%"></span></div></div>`;};
-  const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:mb.importo};});
+  const bonStato=monthlyBonuses.map(mb=>{const sp=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===cbm).reduce((s,pr)=>s+pr.importo,0);return{nome:mb.nome,speso:sp,budget:smVal(mb,cbm)};});
   const recentFuori=prelieviAnno().filter(p=>!isMonthlyPot(p.pot)).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
   const potLabel=id=>'Monte bonus';
   const donutColors=['var(--s2)','var(--s4)'];
@@ -1186,11 +1191,12 @@ function renderOrdinario(el){
     <div style="font-size:12px;color:var(--muted);margin-top:6px">${riservato>=fabAnno?('Ordinario coperto · eccedenza '+eur(riservato-fabAnno)+' verso bonus'):('Mancano '+eur(fabAnno-riservato)+' da coprire con le fatture')}</div>
   </div>
   <div class="card" data-cat="plan"><h3>🧩 Composizione del fabbisogno mensile</h3><div class="desc">Come vengono spesi/allocati i ${eur(fab)} di ogni mese (modificabile in Impostazioni). I "bonus" alimentano i salvadanai nella sezione Bonus.</div>
-    ${(()=>{const sm=w.speseMensili||[];const sum=sm.reduce((s,x)=>s+(+x.importo||0),0);const badge=t=>t==='bonus'?'<span class="tag ina">bonus</span>':t==='settimanale'?'<span class="tag imp">→ settimanali</span>':'<span class="tag">spesa</span>';
+    ${(()=>{const sm=w.speseMensili||[];const cmk=curMonthKey();const sum=sm.reduce((s,x)=>s+smVal(x,cmk),0);
+      const prossime=[];sm.forEach(x=>smPeriodi(x).filter(p=>p.dal>cmk).forEach(p=>prossime.push({dal:p.dal,nome:x.nome,da:smVal(x,isoShiftMonth(p.dal,-1)),a:+p.importo||0})));prossime.sort((a,b)=>a.dal.localeCompare(b.dal));const badge=t=>t==='bonus'?'<span class="tag ina">bonus</span>':t==='settimanale'?'<span class="tag imp">→ settimanali</span>':'<span class="tag">spesa</span>';
       return `<table><thead><tr><th>Voce</th><th>Destinazione</th><th class="num">€/mese</th></tr></thead><tbody>
-      ${sm.map(x=>`<tr><td>${esc(x.nome)}</td><td>${badge(x.tipo)}</td><td class="num">${eur(x.importo)}</td></tr>`).join('')}
-      <tr><td colspan="2"><b>Totale mensile</b></td><td class="num"><b>${eur(sum)}</b> ${Math.abs(sum-fab)>0.5?`<span style="color:var(--amber)">≠ fabbisogno ${eur(fab)}</span>`:''}</td></tr>
-      </tbody></table>`;})()}
+      ${sm.filter(x=>smVal(x,cmk)||smPeriodi(x).length).map(x=>`<tr><td>${esc(x.nome)}${smPeriodi(x).length?' <span title="Ha variazioni nel tempo">📅</span>':''}</td><td>${badge(x.tipo)}</td><td class="num">${eur(smVal(x,cmk))}</td></tr>`).join('')}
+      <tr><td colspan="2"><b>Totale ${esc(monthLabel(cmk).toLowerCase())}</b></td><td class="num"><b>${eur(sum)}</b> ${Math.abs(sum-fab)>0.5?`<span style="color:var(--amber)">≠ fabbisogno ${eur(fab)}</span>`:''}</td></tr>
+      </tbody></table>${prossime.length?`<div style="font-size:12px;margin-top:10px;line-height:1.7"><b>📅 Prossime variazioni</b><br>${prossime.slice(0,6).map(c=>`da ${esc(monthLabel(c.dal).toLowerCase())}: ${esc(c.nome)} ${eur(c.da)} → <b>${eur(c.a)}</b>`).join('<br>')}</div>`:''}`;})()}
   </div>
   <div class="card" data-cat="plan"><h3>📆 Copertura dei mesi</h3><div class="desc">Quali mesi sono coperti dalle allocazioni delle fatture · ogni mese richiede ${eur(fab)}</div>
     ${(()=>{const dett={};fattureAnno().forEach(f=>(f.allocazioni||[]).forEach(a=>{(dett[a.mese]=dett[a.mese]||[]).push({num:f.numero||'—',cli:f.cliente||'',imp:a.importo});}));
@@ -1330,7 +1336,7 @@ function pgPotOptions(dm,cur){
   const opts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];
   (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{
     const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);
-    const disp=(mb.importo||0)-speso;
+    const disp=(smVal(mb,dm)||0)-speso;
     if(disp>0||mb.id===cur)opts.push({id:mb.id,nome:mb.nome,saldo:disp});
   });
   return opts;
@@ -1399,7 +1405,7 @@ function registraProgrammato(id){
       // uscita da bonus mensile: se sfora il disponibile, il residuo va sul monte bonus
       const mb=(w.speseMensili||[]).find(x=>x.id===pot);
       const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese).reduce((s,pr)=>s+pr.importo,0);
-      const disp=Math.max(0,mb?(mb.importo||0)-speso:0);
+      const disp=Math.max(0,mb?(smVal(mb,mese)||0)-speso:0);
       const fit=Math.min(imp,disp);const toMonte=+(imp-fit).toFixed(2);
       if(fit>0){const nid=uid();createdIds.push({arr:'prelieviBonus',id:nid});w.prelieviBonus.push({id:nid,data,pot,mese,importo:fit,note:desc,categoria});}
       if(toMonte>0){const nid=uid();createdIds.push({arr:'prelieviBonus',id:nid});w.prelieviBonus.push({id:nid,data,pot:'fatture',mese,importo:toMonte,note:desc+' (oltre bonus mensile)',categoria});}
@@ -1648,7 +1654,7 @@ function renderBonus(el){
   const potsMon=pots.filter(p=>p.id!=='fatture');
   const prel=(w.prelieviBonus||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   const potName=id=>{const p=pots.find(x=>x.id===id);return p?p.nome:id;};
-  const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
+  const rim=mesiRimanenti();const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+smVal(x),0);
   const monthlyIds=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').map(x=>x.id);const firstMonthly=monthlyIds[0]||'';
   const storico=monteStoricoFineMese();
   let startPref=(w.bonusFattureInizio||'').slice(0,7);if(!startPref){const fa=storico.find(s=>s.entrate>0||s.uscite>0);startPref=fa?fa.mese:'';}
@@ -1783,7 +1789,7 @@ function openPrelievoBonus(prePot,preMese,editId){
   let mesiOpts=mesiBonusList();const dm=preMese||curMonthKey();if(dm&&!mesiOpts.includes(dm))mesiOpts=[dm,...mesiOpts];
   const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus',saldo:0};
   const potOpts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];
-  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm&&pr.id!==editId).reduce((s,pr)=>s+pr.importo,0);const disp=(mb.importo||0)-speso;if(disp>0||mb.id===prePot)potOpts.push({id:mb.id,nome:mb.nome,saldo:disp});});
+  (w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm&&pr.id!==editId).reduce((s,pr)=>s+pr.importo,0);const disp=(smVal(mb,dm)||0)-speso;if(disp>0||mb.id===prePot)potOpts.push({id:mb.id,nome:mb.nome,saldo:disp});});
   document.getElementById('modal').innerHTML=`
     <div class="modal-head"><h3>${ex?'Modifica utilizzo':'Spesa / prelievo dal bonus'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
     <div class="modal-body"><input type="hidden" id="pb_edit" value="${ex?esc(editId):''}"><div class="form-grid">
@@ -1797,14 +1803,14 @@ function openPrelievoBonus(prePot,preMese,editId){
     <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delPrelievoBonus('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="savePrelievoBonus()">${ex?'Salva modifiche':'Salva'}</button></div>`;
   document.getElementById('overlay').classList.add('show');
 }
-function refreshPbPot(){const w=W();const sel=document.getElementById('pb_pot');const meseEl=document.getElementById('pb_mese');if(!sel||!meseEl)return;const dm=meseEl.value;const cur=sel.value;const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus',saldo:0};const opts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];(w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);const disp=(mb.importo||0)-speso;if(disp>0||mb.id===cur)opts.push({id:mb.id,nome:mb.nome,saldo:disp});});sel.innerHTML=opts.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('');}
+function refreshPbPot(){const w=W();const sel=document.getElementById('pb_pot');const meseEl=document.getElementById('pb_mese');if(!sel||!meseEl)return;const dm=meseEl.value;const cur=sel.value;const monteP=bonusPots().find(p=>p.id==='fatture')||{nome:'Monte bonus',saldo:0};const opts=[{id:'fatture',nome:monteP.nome,saldo:monteP.saldo}];(w.speseMensili||[]).filter(x=>x.tipo==='bonus').forEach(mb=>{const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===mb.id&&pr.mese===dm).reduce((s,pr)=>s+pr.importo,0);const disp=(smVal(mb,dm)||0)-speso;if(disp>0||mb.id===cur)opts.push({id:mb.id,nome:mb.nome,saldo:disp});});sel.innerHTML=opts.map(p=>`<option value="${p.id}" ${p.id===cur?'selected':''}>${esc(p.nome)} (${eur(p.saldo)})</option>`).join('');}
 function savePrelievoBonus(){
   const imp=+document.getElementById('pb_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
   const mEl=document.getElementById('pb_mese');const pot=document.getElementById('pb_pot').value;const mese=mEl?mEl.value:'';
   const editEl=document.getElementById('pb_edit');const editId=editEl?editEl.value:'';
   const w=W();let disp;
   if(pot==='fatture'){disp=(bonusPots().find(p=>p.id==='fatture')||{saldo:0}).saldo;if(editId){const old=(w.prelieviBonus||[]).find(p=>p.id===editId);if(old&&old.pot==='fatture')disp+=old.importo;}}
-  else{const mb=(w.speseMensili||[]).find(x=>x.id===pot);const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese&&pr.id!==editId).reduce((s,pr)=>s+pr.importo,0);disp=mb?(mb.importo||0)-speso:0;}
+  else{const mb=(w.speseMensili||[]).find(x=>x.id===pot);const speso=(w.prelieviBonus||[]).filter(pr=>pr.pot===pot&&pr.mese===mese&&pr.id!==editId).reduce((s,pr)=>s+pr.importo,0);disp=mb?(smVal(mb,mese)||0)-speso:0;}
   const data=document.getElementById('pb_data').value||todayISO();const note=document.getElementById('pb_note').value.trim();
   const catEl=document.getElementById('pb_cat');const categoria=(catEl&&catEl.value.trim())?catEl.value.trim():categorizza(note);
   if(editId){const p=(w.prelieviBonus||[]).find(x=>x.id===editId);if(p){p.data=data;p.pot=pot;p.mese=mese;p.importo=imp;p.note=note;p.categoria=categoria;}
@@ -1961,9 +1967,9 @@ function renderStat(el){
   const cats=Object.entries(catMap).map(([label,value])=>({label,value})).sort((a,b)=>b.value-a.value);
   const wkMap={};speseAnno().forEach(s=>{const k=weekKey(s.data);if(!wkMap[k])wkMap[k]={tot:0,sample:s.data};wkMap[k].tot+=s.importo;});
   const wkData=Object.keys(wkMap).sort().slice(-8).map(k=>({label:weekRange(wkMap[k].sample).split('–')[0].trim(),value:wkMap[k].tot}));
-  const mensile=(w.speseMensili||[]).filter(x=>x.tipo==='bonus').reduce((s,x)=>s+x.importo,0);
-  let cum=0;const bonusMens=MESI.map(m=>{cum+=mensile;return{label:m.slice(0,3),value:cum};});
-  const comp=(w.speseMensili||[]).filter(x=>x.tipo==='spesa').map(x=>({label:x.nome,value:x.importo})).sort((a,b)=>b.value-a.value);
+  const bonusVoci=(w.speseMensili||[]).filter(x=>x.tipo==='bonus');
+  let cum=0;const bonusMens=MESI.map((m,mi)=>{const mk=w.anno+'-'+String(mi+1).padStart(2,'0');cum+=bonusVoci.reduce((s,x)=>s+smVal(x,mk),0);return{label:m.slice(0,3),value:cum};});
+  const comp=(w.speseMensili||[]).filter(x=>x.tipo==='spesa').map(x=>({label:x.nome,value:smVal(x)})).sort((a,b)=>b.value-a.value);
   const fab=w.fabbisognoMensile||0;
   const fuoriMap=speseFuori2500PerMese();const fuoriKeys=Object.keys(fuoriMap).sort();const fuoriVals=fuoriKeys.map(k=>fuoriMap[k]);
   const insights=[];
@@ -2086,7 +2092,7 @@ function renderImpostazioni(el){
       <button type="button" data-fs="2" aria-pressed="${fscale==='2'?'true':'false'}" onclick="setFontScale('2')" style="font-size:18px">A++</button>
     </div>
   </div>
-  <div class="card" data-cat="plan"><h3>🧩 Composizione fabbisogno mensile</h3><div class="desc">Le voci in cui si suddividono i ${eur(w.fabbisognoMensile)} mensili. Tipo "bonus" = va nei salvadanai; "→ settimanali" = alimenta il budget settimanale.</div>
+  <div class="card" data-cat="plan"><h3>🧩 Composizione fabbisogno mensile</h3><div class="desc">Le voci in cui si suddividono i ${eur(w.fabbisognoMensile)} mensili. Tipo "bonus" = va nei salvadanai; "→ settimanali" = alimenta il budget settimanale.<br><b>Le modifiche non sono retroattive:</b> se cambi un importo qui vale dal mese in corso in poi. Con 📅 imposti variazioni future (es. da novembre 150 €, da gennaio 300 €) e vedi lo storico.</div>
     <div id="smList">${(w.speseMensili||[]).map(x=>smRowHTML(x)).join('')}</div>
     <button class="btn-sm btn-ghost" onclick="addSmRow()">+ Aggiungi voce</button>
   </div>
@@ -2112,11 +2118,48 @@ function renderImpostazioni(el){
   </div>`;
   siriInitCard();
 }
-function smRowHTML(x){x=x||{nome:'',importo:0,tipo:'spesa'};
+function smRowHTML(x){x=x||{nome:'',importo:0,tipo:'spesa'};const isNew=!x.id;
   const opt=(v,l)=>`<option value="${v}" ${x.tipo===v?'selected':''}>${l}</option>`;
-  return `<div class="alloc-row" data-id="${x.id||''}"><input data-role="nome" value="${esc(x.nome)}" style="flex:1" placeholder="Voce"><input type="number" data-role="imp" value="${x.importo}" placeholder="€" style="width:100px"><select data-role="tipo" style="flex:0 0 130px">${opt('spesa','Spesa')}${opt('settimanale','→ settimanali')}${opt('bonus','Bonus')}</select><button class="mini-btn del" onclick="this.parentNode.remove()">×</button></div>`;
+  const cur=isNew?(+x.importo||0):smVal(x);const per=esc(JSON.stringify(smPeriodi(x)));const hist=isNew?'':smStoricoTxt(x);
+  return `<div class="sm-item" data-id="${x.id||''}" data-base="${isNew?'':(+x.importo||0)}" data-periodi="${per}" data-orig="${cur}" style="margin-bottom:8px">
+    <div class="alloc-row" style="margin-bottom:2px"><input data-role="nome" value="${esc(x.nome)}" style="flex:1" placeholder="Voce"><input type="number" data-role="imp" value="${cur}" placeholder="€" style="width:100px" title="Valore dal mese in corso"><select data-role="tipo" style="flex:0 0 130px">${opt('spesa','Spesa')}${opt('settimanale','→ settimanali')}${opt('bonus','Bonus')}</select><button type="button" class="mini-btn" onclick="openSmPeriodi(this)" title="Validità e storico" aria-label="Validità e storico">📅</button><button type="button" class="mini-btn del" onclick="this.closest('.sm-item').remove()" aria-label="Rimuovi voce">×</button></div>
+    <div class="sm-hist" style="font-size:11px;color:var(--muted);padding-left:4px">${hist?'📅 '+esc(hist):''}</div></div>`;
 }
-function addSmRow(){const l=document.getElementById('smList');const d=document.createElement('div');d.innerHTML=smRowHTML();l.appendChild(d.firstChild);}
+function addSmRow(){const l=document.getElementById('smList');const d=document.createElement('div');d.innerHTML=smRowHTML();l.appendChild(d.firstElementChild);}
+/* Editor validità / storico di una voce del fabbisogno */
+let smEditEl=null;
+function smPerRowHTML(p){return `<div class="alloc-row sm-per"><span style="font-size:12px;color:var(--muted);flex:0 0 26px">dal</span><input type="month" data-role="dal" value="${esc(p.dal||'')}" style="flex:1"><input type="number" step="0.01" inputmode="decimal" data-role="imp" value="${p.importo!=null?p.importo:''}" placeholder="€" style="width:100px"><button type="button" class="mini-btn del" onclick="this.closest('.sm-per').remove();smPerPreview()" aria-label="Rimuovi variazione">×</button></div>`;}
+function openSmPeriodi(btn){
+  const el=btn.closest('.sm-item');smEditEl=el;const nome=el.querySelector('[data-role=nome]').value.trim()||'Voce';
+  const isNew=el.dataset.base==='';const cm=curMonthKey();
+  let base=isNew?0:+el.dataset.base||0;let per=[];try{per=JSON.parse(el.dataset.periodi||'[]');}catch(e){}
+  if(isNew&&!per.length)per=[{dal:cm,importo:+el.querySelector('[data-role=imp]').value||0}];
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>📅 Validità · ${esc(nome)}</h3><button class="close-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Ogni variazione vale <b>dal mese indicato in poi</b>, finché non ne inizia un'altra. I mesi precedenti restano con i valori di allora. Esempio: da novembre 150 €, da gennaio di nuovo 300 €.</p>
+      <div class="fld" style="margin-bottom:12px"><label>Valore iniziale (prima della prima variazione)</label><input id="smp_base" type="number" step="0.01" inputmode="decimal" value="${base}" oninput="smPerPreview()"></div>
+      <div id="smp_list">${per.map(smPerRowHTML).join('')}</div>
+      <button type="button" class="btn-sm btn-ghost" style="margin-top:4px" onclick="smPerAdd()">+ Aggiungi variazione</button>
+      <div id="smp_prev" class="calc-box" style="margin-top:12px;font-size:12px"></div>
+    </div>
+    <div class="modal-foot"><button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button><button class="btn-sm" onclick="smPerApply()">Applica e salva</button></div>`;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('smp_list').addEventListener('input',smPerPreview);smPerPreview();
+}
+function smPerRead(){const base=+document.getElementById('smp_base').value||0;const seen={};
+  const per=[...document.querySelectorAll('#smp_list .sm-per')].map(r=>({dal:r.querySelector('[data-role=dal]').value,importo:+r.querySelector('[data-role=imp]').value||0})).filter(p=>/^\d{4}-\d{2}$/.test(p.dal)).sort((a,b)=>a.dal.localeCompare(b.dal)).filter(p=>{if(seen[p.dal])return false;seen[p.dal]=1;return true;});
+  return {base,per};}
+function smPerAdd(){const {per}=smPerRead();const cm=curMonthKey();const last=per.length?per[per.length-1].dal:cm;const dal=per.length?isoShiftMonth(last,1):isoShiftMonth(cm,1);
+  const l=document.getElementById('smp_list');const d=document.createElement('div');d.innerHTML=smPerRowHTML({dal,importo:''});l.appendChild(d.firstElementChild);smPerPreview();}
+function smPerPreview(){const box=document.getElementById('smp_prev');if(!box)return;const {base,per}=smPerRead();const x={importo:base,periodi:per};const cm=curMonthKey();
+  const months=[];for(let i=-1;i<=13;i++)months.push(isoShiftMonth(cm,i));
+  const rows=[];let prev=null;months.forEach(m=>{const v=smVal(x,m);if(prev===null||Math.abs(v-prev)>0.001||m===cm){rows.push(`<div class="calc-row"><span class="lbl">${m===cm?'<b>'+monthLabel(m)+' (in corso)</b>':monthLabel(m)}</span><span>${eur(v)}</span></div>`);}prev=v;});
+  box.innerHTML='<div style="font-weight:600;margin-bottom:4px">Anteprima (dal mese scorso ai prossimi 12)</div>'+rows.join('');}
+function smPerApply(){const el=smEditEl;if(!el){closeModal();return;}const {base,per}=smPerRead();
+  el.dataset.base=String(base);el.dataset.periodi=JSON.stringify(per);const v=smVal({importo:base,periodi:per});
+  const inp=el.querySelector('[data-role=imp]');inp.value=v;el.dataset.orig=String(v);
+  closeModal();saveSettings();}
 function scagRowHTML(s,i,n){s=s||{fino:null,perc:0};const last=i===n-1;
   return `<div class="alloc-row" data-scag><span style="flex:0 0 68px;font-size:12px;color:var(--muted)">${i===0?'fino a':'poi fino a'}</span><input type="number" data-role="fino" value="${s.fino==null?'':s.fino}" placeholder="${last?'oltre (∞)':'€'}" style="width:120px" ${last?'disabled':''}><span style="font-size:12px;color:var(--muted)">€</span><input type="number" step="0.1" data-role="perc" value="${s.perc}" style="width:78px"><span style="font-size:12px;color:var(--muted)">%</span></div>`;
 }
@@ -2128,7 +2171,21 @@ function addDedRow(){const l=document.getElementById('dedList');const d=document
 function saveSettings(){
   const w=W();
   w.denominazione=document.getElementById('set_den').value.trim();
-  w.speseMensili=[...document.querySelectorAll('#smList .alloc-row')].map(r=>({id:r.dataset.id||uid(),nome:r.querySelector('[data-role=nome]').value.trim(),importo:+r.querySelector('[data-role=imp]').value||0,tipo:r.querySelector('[data-role=tipo]').value})).filter(x=>x.nome||x.importo);
+  {const cm=curMonthKey();
+  w.speseMensili=[...document.querySelectorAll('#smList .sm-item')].map(el=>{
+    const r=el.querySelector('.alloc-row');const nome=r.querySelector('[data-role=nome]').value.trim();const val=+r.querySelector('[data-role=imp]').value||0;const tipo=r.querySelector('[data-role=tipo]').value;
+    let per=[];try{per=JSON.parse(el.dataset.periodi||'[]');}catch(e){}
+    let base;
+    if(el.dataset.base===''){ // voce nuova: vale dal mese in corso, non retroattiva
+      base=0;if(!per.length)per=[{dal:cm,importo:val}];
+      else if(Math.abs(smVal({importo:0,periodi:per},cm)-val)>0.001){per=per.filter(p=>p.dal!==cm);per.push({dal:cm,importo:val});}
+    }else{
+      base=+el.dataset.base||0;
+      if(Math.abs(smVal({importo:base,periodi:per},cm)-val)>0.001){per=per.filter(p=>p.dal!==cm);per.push({dal:cm,importo:val});} // modifica diretta = dal mese in corso
+    }
+    per.sort((a,b)=>a.dal.localeCompare(b.dal));
+    const o={id:el.dataset.id||uid(),nome,importo:base,tipo};if(per.length)o.periodi=per;return o;
+  }).filter(x=>x.nome||smVal(x)||(x.periodi||[]).length);}
   w.partitaIva=document.getElementById('set_piva').value.trim();
   w.regimeAttivo=document.getElementById('set_regime').value;
   w.anno=+document.getElementById('set_anno').value||w.anno;
