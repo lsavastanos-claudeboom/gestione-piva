@@ -377,8 +377,10 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
     <input type="email" id="cloudEmail" class="cloud-in" placeholder="Email" autocomplete="username" inputmode="email">
     <input type="password" id="cloudPass" class="cloud-in" placeholder="Password" autocomplete="current-password">
     <div class="login-err" id="cloudErr"></div>
-    <button class="btn" onclick="cloudSignIn()">Accedi</button>
-    <div class="login-hint">Prima volta? <a href="#" onclick="cloudSignUp();return false;">Crea l'accesso</a> · <a href="#" onclick="startLocal();return false;">continua offline</a></div>
+    <input type="password" id="cloudPass2" class="cloud-in" placeholder="Ripeti la password" autocomplete="new-password" style="display:none">
+    <button class="btn" id="cloudMainBtn" onclick="cloudMain()">Accedi</button>
+    <button class="btn" id="cloudSwitchBtn" onclick="setCloudMode(cloudSignupMode?'login':'signup')" style="background:transparent;border:1px solid var(--line);color:var(--txt);margin-top:8px">✨ Crea un nuovo account</button>
+    <div class="login-hint"><a href="#" onclick="startLocal();return false;">continua offline</a></div>
   </div>
 </div>
 <div id="setup" role="dialog" aria-label="Configura il tuo account">
@@ -499,7 +501,7 @@ function newWorkspace(){return{
   ],
   bonusProgressivo:0, bonusRiserva:0, bonusFreeze:0, bonusIniData:'', prelieviBonus:[], bonusMensiliInizio:null, bonusFattureInizio:null,
   proiezione:{quotaOrdinaria:30000, accantonaAnnoSucc:20000, speseGrandi:[{nome:'Auto',importo:9300}], scenari:[100000,85000,80000,75000], target:85000},
-  fatture:[], spese:[], movimenti:[], programmati:[], entrateMonte:[], speseStraord:[]
+  fatture:[], spese:[], movimenti:[], programmati:[], entrateMonte:[], speseStraord:[], altreEntrate:[]
 };}
 function defaults(){return{utenti:[{nome:'Utenza 1',pin:'0000'},{nome:'Utenza 2',pin:'0000'}],workspaces:[seedWorkspace2026(),newWorkspace()]};}
 /* Storico 2026 importato dal file Excel PROIEZIONE 2026 (utenza 1, forfettario) */
@@ -694,7 +696,8 @@ const VIEWS_SEMPLICI=['dashboard','fatture','spese','conto','impostazioni'];
 function isSemplice(){const w=(currentUser!=null&&state.workspaces)?state.workspaces[currentUser]:null;return !!(w&&w.modo==='semplice');}
 function applyMode(){const sm=isSemplice();document.body.classList.toggle('mode-semplice',sm);
   document.querySelectorAll('#nav button,.bottomnav button').forEach(b=>{b.style.display=(sm&&!VIEWS_SEMPLICI.includes(b.dataset.v))?'none':'';});
-  const bl=document.querySelector('.bottomnav button[data-v="dashboard"] .blbl');if(bl)bl.textContent='Home';}
+  const bl=document.querySelector('.bottomnav button[data-v="dashboard"] .blbl');if(bl)bl.textContent='Home';
+  const nf=document.querySelector('#nav button[data-v="fatture"] span:not(.ic)');if(nf)nf.textContent=sm?'Entrate':'Fatture';const bf=document.querySelector('.bottomnav button[data-v="fatture"] .blbl');if(bf)bf.textContent=sm?'Entrate':'Fatture';}
 /* ============ NAV ============ */
 let view='dashboard';
 let dashMeseOffset=0;
@@ -975,7 +978,8 @@ function renderDashboard(el){
 function renderFatture(el){
   const w=W();const fs=fattureAnno().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   el.innerHTML=`
-  ${pageHead('Fatture','Fatture emesse e ripartizione di ogni importo')}
+  ${isSemplice()?pageHead('Entrate','Fatture emesse e altre entrate'):pageHead('Fatture','Fatture emesse e ripartizione di ogni importo')}
+  ${isSemplice()?altreEntrateCardHTML():''}
   <div class="card" data-cat="income"><div class="card-head"><h3>🧾 Elenco fatture ${w.anno}</h3><button class="btn-sm" onclick="openFattura()">+ Nuova fattura</button></div>
     ${fs.length===0?'<div class="empty">Nessuna fattura. Clicca “Nuova fattura” per iniziare.</div>':`
     <input class="filter-in" placeholder="🔎 Cerca per numero, cliente, descrizione…" oninput="filterRows(this,'fattureTbody')">
@@ -1264,29 +1268,64 @@ function semShift(n){semMeseOffset+=n;if(semMeseOffset>0)semMeseOffset=0;render(
 function semMeseNav(){const m=semMese();return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><button class="mini-btn" onclick="semShift(-1)" aria-label="Mese precedente">‹</button><b style="font-size:15px;min-width:150px;text-align:center">${esc(monthLabel(m))}</b><button class="mini-btn" onclick="semShift(1)" aria-label="Mese successivo" ${semMeseOffset>=0?'disabled style="opacity:.35"':''}>›</button>${semMeseOffset<0?'<button class="mini-btn" onclick="semMeseOffset=0;render()">Oggi</button>':''}</div>`;}
 function semFattureMese(m){return (W().fatture||[]).filter(f=>(f.data||'').slice(0,7)===m);}
 function semSpeseMese(m){return (W().spese||[]).filter(s=>(s.data||'').slice(0,7)===m);}
+/* Altre entrate (non fatture): fuori dal conto imposte e dalle imposte */
+function semAltreMese(m){return (W().altreEntrate||[]).filter(e=>(e.data||'').slice(0,7)===m);}
+function altreEntrateCardHTML(){
+  const w=W();const y=String(w.anno);const list=(w.altreEntrate||[]).filter(e=>(e.data||'').slice(0,4)===y).sort((a,b)=>(b.data||'').localeCompare(a.data||''));const tot=list.reduce((s,e)=>s+(+e.importo||0),0);
+  return `<div class="card" data-cat="income"><div class="card-head"><h3>💶 Altre entrate ${w.anno}</h3><button class="btn-sm" onclick="openEntrata()">+ Nuova entrata</button></div>
+    <div class="desc">Entrate che non sono fatture (rimborsi, regali, vendite, stipendio…): contano nel saldo ma <b>non</b> nelle imposte né nel conto imposte.</div>
+    ${list.length?`<table class="rtable"><thead><tr><th>Data</th><th>Descrizione</th><th class="num">Importo</th><th></th></tr></thead><tbody>
+    ${list.map(e=>`<tr><td data-label="Data">${fmtDate(e.data)}</td><td data-label="Descrizione"><b>${esc(e.descrizione||'—')}</b></td><td class="num" data-label="Importo" style="color:var(--green)"><b>${eur(e.importo)}</b></td>
+      <td data-label="" style="white-space:nowrap"><button class="mini-btn" onclick="openEntrata('${e.id}')" title="Modifica">✎</button><button class="mini-btn del" onclick="delEntrata('${e.id}')" title="Elimina">🗑</button></td></tr>`).join('')}
+    <tr><td colspan="2"><b>Totale</b></td><td class="num"><b>${eur(tot)}</b></td><td></td></tr></tbody></table>`:'<div class="empty">Nessuna altra entrata registrata.</div>'}
+  </div>`;
+}
+function openEntrata(editId){
+  const ex=editId?(W().altreEntrate||[]).find(e=>e.id===editId):null;
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-head"><h3>${ex?'Modifica entrata':'Nuova entrata'}</h3><button class="close-x" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><input type="hidden" id="ae_edit" value="${ex?esc(editId):''}"><div class="form-grid">
+      <div class="fld"><label>Data</label><input id="ae_data" type="date" value="${ex?esc(ex.data):todayISO()}"></div>
+      <div class="fld"><label>Importo (€)</label><input id="ae_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
+      <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="ae_desc" placeholder="es. rimborso, regalo, vendita usato…" value="${ex?esc(ex.descrizione||''):''}"></div>
+    </div><div style="font-size:11px;color:var(--muted);margin-top:4px">Non è una fattura: non genera imposte e non va nel conto imposte.</div></div>
+    <div class="modal-foot">${ex?`<button class="btn-sm btn-ghost" style="color:var(--red);border-color:var(--red)" onclick="delEntrata('${editId}');closeModal();">🗑 Elimina</button>`:`<button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button>`}<button class="btn-sm" onclick="saveEntrata()">${ex?'Salva modifiche':'Salva'}</button></div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+function saveEntrata(){
+  const imp=+document.getElementById('ae_imp').value||0;if(imp<=0){toast('Importo non valido',true);return;}
+  const w=W();if(!w.altreEntrate)w.altreEntrate=[];
+  const rec={data:document.getElementById('ae_data').value||todayISO(),importo:imp,descrizione:document.getElementById('ae_desc').value.trim()};
+  const id=(document.getElementById('ae_edit')||{}).value;
+  if(id){const e=w.altreEntrate.find(x=>x.id===id);if(e)Object.assign(e,rec);}else w.altreEntrate.push(Object.assign({id:uid()},rec));
+  save();closeModal();render();toast(id?'Entrata aggiornata':'Entrata registrata');
+}
+function delEntrata(id){const w=W();const i=(w.altreEntrate||[]).findIndex(e=>e.id===id);if(i<0)return;const it=w.altreEntrate[i];w.altreEntrate.splice(i,1);save();render();
+  showUndo('Entrata eliminata',()=>{const ww=W();if(!ww.altreEntrate)ww.altreEntrate=[];ww.altreEntrate.splice(Math.min(i,ww.altreEntrate.length),0,it);save();render();toast('Ripristinata');});}
 function renderHomeSemplice(el){
   const w=W();const m=semMese();const y=+m.slice(0,4);
   const fm=semFattureMese(m);const sm=semSpeseMese(m);
   const fatt=fm.reduce((s,f)=>s+(+f.compenso||0),0);const netto=fm.reduce((s,f)=>s+(+f.netto||0),0);const accImp=fm.reduce((s,f)=>s+fVersare(f),0);
-  const spese=sm.reduce((s,x)=>s+(+x.importo||0),0);const saldo=netto-spese;
+  const am=semAltreMese(m);const altre=am.reduce((s,e)=>s+(+e.importo||0),0);const entrate=netto+altre;
+  const spese=sm.reduce((s,x)=>s+(+x.importo||0),0);const saldo=entrate-spese;
   const fa=(w.fatture||[]).filter(f=>(f.data||'').slice(0,4)===String(y));const sa=(w.spese||[]).filter(x=>(x.data||'').slice(0,4)===String(y));
-  const fattA=fa.reduce((s,f)=>s+(+f.compenso||0),0),nettoA=fa.reduce((s,f)=>s+(+f.netto||0),0),speseA=sa.reduce((s,x)=>s+(+x.importo||0),0);
+  const fattA=fa.reduce((s,f)=>s+(+f.compenso||0),0),nettoA=fa.reduce((s,f)=>s+(+f.netto||0),0),speseA=sa.reduce((s,x)=>s+(+x.importo||0),0);const altreA=(w.altreEntrate||[]).filter(e=>(e.data||'').slice(0,4)===String(y)).reduce((s,e)=>s+(+e.importo||0),0);
   let conto=0;try{conto=contoSaldo();}catch(e){}
   const lastM=(y===new Date().getFullYear())?new Date().getMonth()+1:12;
-  const righe=[];for(let i=lastM;i>=1;i--){const k=y+'-'+String(i).padStart(2,'0');const n=semFattureMese(k).reduce((s,f)=>s+(+f.netto||0),0);const sp=semSpeseMese(k).reduce((s,x)=>s+(+x.importo||0),0);if(n||sp||k===m)righe.push({k,n,sp});}
+  const righe=[];for(let i=lastM;i>=1;i--){const k=y+'-'+String(i).padStart(2,'0');const n=semFattureMese(k).reduce((s,f)=>s+(+f.netto||0),0)+semAltreMese(k).reduce((s,e)=>s+(+e.importo||0),0);const sp=semSpeseMese(k).reduce((s,x)=>s+(+x.importo||0),0);if(n||sp||k===m)righe.push({k,n,sp});}
   const ultime=(w.spese||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
   el.innerHTML=`
   ${pageHead('Home','Entrate, spese e imposte in un colpo d\'occhio')}
   ${semMeseNav()}
   <div class="kpi-grid">
-    <div class="kpi green"><div class="lbl">Entrate nette del mese</div><div class="val" style="font-size:22px;color:var(--green)">${eur(netto)}</div><div class="sub">fatturato ${eur(fatt)} · ${num(fm.length)} fatture</div></div>
+    <div class="kpi green"><div class="lbl">Entrate nette del mese</div><div class="val" style="font-size:22px;color:var(--green)">${eur(entrate)}</div><div class="sub">fatture ${eur(netto)} netto${altre?' · altre '+eur(altre):''}</div></div>
     <div class="kpi"><div class="lbl">Spese del mese</div><div class="val" style="font-size:22px;color:var(--red)">${eur(spese)}</div><div class="sub">${num(sm.length)} spese registrate</div></div>
     <div class="kpi accent"><div class="lbl">Saldo del mese</div><div class="val" style="font-size:22px;color:${saldo<0?'var(--red)':'var(--green)'}">${saldo<0?'−':''}${eur(Math.abs(saldo))}</div><div class="sub">entrate nette − spese</div></div>
     <div class="kpi"><div class="lbl">Da accantonare per imposte</div><div class="val" style="font-size:22px;color:var(--amber)">${eur(accImp)}</div><div class="sub">dalle fatture del mese</div></div>
   </div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"><button class="btn-sm" onclick="openFattura()">🧾 + Fattura</button><button class="btn-sm" onclick="openSpesa()">🛒 + Spesa</button><button class="btn-sm btn-ghost" onclick="goTo('conto')">🏦 Conto imposte: <b>${eur(conto)}</b></button></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"><button class="btn-sm" onclick="openFattura()">🧾 + Fattura</button><button class="btn-sm" onclick="openEntrata()" style="background:var(--green)">💶 + Entrata</button><button class="btn-sm" onclick="openSpesa()">🛒 + Spesa</button><button class="btn-sm btn-ghost" onclick="goTo('conto')">🏦 Conto imposte: <b>${eur(conto)}</b></button></div>
   <div class="card" data-cat="income"><h3>📅 Anno ${y}</h3>
-    <div class="desc">Fatturato ${eur(fattA)} · entrate nette ${eur(nettoA)} · spese ${eur(speseA)} · saldo <b style="color:${nettoA-speseA<0?'var(--red)':'var(--green)'}">${eur(nettoA-speseA)}</b></div>
+    <div class="desc">Fatturato ${eur(fattA)} · entrate nette ${eur(nettoA+altreA)}${altreA?' (di cui altre '+eur(altreA)+')':''} · spese ${eur(speseA)} · saldo <b style="color:${nettoA+altreA-speseA<0?'var(--red)':'var(--green)'}">${eur(nettoA+altreA-speseA)}</b></div>
     ${righe.length?`<table class="rtable"><thead><tr><th>Mese</th><th class="num">Entrate nette</th><th class="num">Spese</th><th class="num">Saldo</th></tr></thead><tbody>
     ${righe.map(r=>`<tr${r.k===m?' style="background:var(--panel2)"':''}><td data-label="Mese">${esc(monthLabel(r.k))}</td><td class="num" data-label="Entrate nette" style="color:var(--green)">${eur(r.n)}</td><td class="num" data-label="Spese" style="color:var(--red)">${eur(r.sp)}</td><td class="num" data-label="Saldo"><b style="color:${r.n-r.sp<0?'var(--red)':'var(--green)'}">${eur(r.n-r.sp)}</b></td></tr>`).join('')}
     </tbody></table>`:'<div class="empty">Ancora nessun movimento quest\'anno.</div>'}
@@ -1738,7 +1777,7 @@ function openQuickAdd(){
       <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Cosa vuoi registrare?</p>
       <div style="display:flex;flex-direction:column;gap:12px">
         <button class="btn-sm" style="padding:16px;font-size:15px;text-align:left" onclick="closeModal();openSpesa()">🛒&nbsp;&nbsp;${isSemplice()?'Spesa':'Spesa settimanale'}</button>
-        ${isSemplice()?`<button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--green)" onclick="closeModal();openFattura()">🧾&nbsp;&nbsp;Fattura emessa</button>`:`<button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--violet)" onclick="closeModal();openPrelievoBonus()">🎁&nbsp;&nbsp;Spesa dal bonus (prelievo)</button>`}
+        ${isSemplice()?`<button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--green)" onclick="closeModal();openFattura()">🧾&nbsp;&nbsp;Fattura emessa</button><button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--accent)" onclick="closeModal();openEntrata()">💶&nbsp;&nbsp;Altra entrata (non fattura)</button>`:`<button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--violet)" onclick="closeModal();openPrelievoBonus()">🎁&nbsp;&nbsp;Spesa dal bonus (prelievo)</button>`}
       </div>
     </div>`;
   document.getElementById('overlay').classList.add('show');
@@ -2369,6 +2408,13 @@ async function boot(){
     else{showCloudLogin();}
   }catch(e){console.warn(e);startLocal();}
 }
+let cloudSignupMode=false;
+function setCloudMode(m){cloudSignupMode=(m==='signup');const g=id=>document.getElementById(id);
+  g('cloudMsg').textContent=cloudSignupMode?'Crea il tuo account: email e una password di almeno 6 caratteri':'Accedi per sincronizzare i dati tra PC e iPhone';
+  g('cloudPass2').style.display=cloudSignupMode?'':'none';g('cloudMainBtn').textContent=cloudSignupMode?'Crea account':'Accedi';
+  g('cloudSwitchBtn').textContent=cloudSignupMode?'Ho già un account · Accedi':'✨ Crea un nuovo account';g('cloudPass').setAttribute('autocomplete',cloudSignupMode?'new-password':'current-password');
+  g('cloudErr').textContent='';setTimeout(()=>{const e=g('cloudEmail');if(e)e.focus();},40);}
+function cloudMain(){if(cloudSignupMode)cloudSignUp();else cloudSignIn();}
 function showCloudLogin(){document.getElementById('login').style.display='none';document.getElementById('app').style.display='none';document.getElementById('cloudlogin').style.display='flex';setTimeout(()=>{const e=document.getElementById('cloudEmail');if(e)e.focus();},60);}
 function afterCloud(){document.getElementById('cloudlogin').style.display='none';if(needOnboarding){showSetup();return;}enterOrLogin();}
 function enterOrLogin(){if(state.utenti.length===1&&!state.utenti[0].pin){currentUser=0;selectedUser=0;document.getElementById('login').style.display='none';document.getElementById('app').style.display='block';initApp();return;}renderLogin();document.getElementById('login').style.display='flex';}
@@ -2397,15 +2443,16 @@ async function cloudSignIn(){
 async function cloudSignUp(){
   const email=(document.getElementById('cloudEmail').value||'').trim();const pass=document.getElementById('cloudPass').value||'';
   const err=document.getElementById('cloudErr');
-  if(!email||pass.length<6){err.style.color='var(--red)';err.textContent='Email valida e password di almeno 6 caratteri';return;}
+  if(!email||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)||pass.length<6){err.style.color='var(--red)';err.textContent='Serve un\'email valida e una password di almeno 6 caratteri';return;}
+  const p2=document.getElementById('cloudPass2');if(p2&&p2.style.display!=='none'&&p2.value!==pass){err.style.color='var(--red)';err.textContent='Le due password non coincidono';return;}
   err.style.color='var(--muted)';err.textContent='Creazione accesso…';
-  try{const {data,error}=await sb.auth.signUp({email,password:pass});
+  try{const {data,error}=await sb.auth.signUp({email,password:pass,options:{emailRedirectTo:location.href.split('#')[0].split('?')[0]}});
     if(error){err.style.color='var(--red)';err.textContent=traduciErr(error.message);return;}
     if(data.session&&data.user){cloudUser=data.user;err.textContent='';await loadCloud();afterCloud();}
-    else{err.style.color='var(--green)';err.textContent='Accesso creato. Se richiesto conferma via email, poi premi Accedi.';}
+    else{err.style.color='var(--green)';err.textContent='Account creato! Ti abbiamo mandato un\'email: apri il link di conferma, poi torna qui e premi Accedi.';setCloudMode('login');document.getElementById('cloudErr').style.color='var(--green)';document.getElementById('cloudErr').textContent='Account creato! Controlla l\'email (anche lo spam), apri il link di conferma, poi torna qui e premi Accedi.';}
   }catch(e){err.style.color='var(--red)';err.textContent='Errore di connessione';}
 }
-function traduciErr(m){m=m||'';if(/invalid login/i.test(m))return 'Email o password errati';if(/already registered/i.test(m))return 'Email già registrata: premi Accedi';if(/confirm/i.test(m))return 'Conferma l\'email prima di accedere';return m;}
+function traduciErr(m){m=m||'';if(/invalid login/i.test(m))return 'Email o password errati';if(/already registered/i.test(m))return 'Email già registrata: premi Accedi';if(/confirm/i.test(m))return 'Conferma l\'email prima di accedere (apri il link che ti è arrivato)';if(/rate limit|too many/i.test(m))return 'Troppi tentativi o email inviate: riprova tra un po\'';if(/signups? not allowed|signup.*disabled/i.test(m))return 'La creazione di nuovi account è disattivata su Supabase';if(/password/i.test(m)&&/weak|short|least/i.test(m))return 'Password troppo debole: usane una più lunga';if(/invalid.*email|email.*invalid/i.test(m))return 'Indirizzo email non valido';return m;}
 async function loadCloud(){
   cloudMode=true;needOnboarding=false;
   try{const {data,error}=await sb.from('app_state').select('data').eq('user_id',cloudUser.id).maybeSingle();
@@ -2434,7 +2481,7 @@ async function pushCloud(silent){
 }
 function scheduleCloud(){if(!sb||!cloudUser)return;setSync('off','salvataggio…');clearTimeout(saveTimer);saveTimer=setTimeout(()=>pushCloud(),1200);}
 async function cloudSignOut(){try{await pushCloud(true);}catch(e){}if(sb){try{await sb.auth.signOut();}catch(e){}}try{localStorage.removeItem(KEY);}catch(e){}state=defaults();cloudUser=null;currentUser=null;cloudMode=false;showCloudLogin();}
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('cloudlogin').style.display!=='none')cloudSignIn();});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('cloudlogin').style.display!=='none')cloudMain();});
 
 /* ============================================================
    SIRI — casella in entrata (Comandi iOS → Supabase → app)
