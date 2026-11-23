@@ -363,6 +363,10 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
   .casc .r.big{font-size:14px}
   .scad .item{min-width:calc(50% - 5px)}
 }
+.mode-semplice .only-full{display:none!important}
+#setup{display:none;position:fixed;inset:0;z-index:200;align-items:center;justify-content:center;background:var(--bg);padding:16px;overflow:auto}
+#setup .opt-modo{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px;cursor:pointer;text-align:left}
+#setup .opt-modo input{margin-top:3px}
 </style>
 </head>
 <body>
@@ -377,6 +381,19 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
     <div class="login-hint">Prima volta? <a href="#" onclick="cloudSignUp();return false;">Crea l'accesso</a> · <a href="#" onclick="startLocal();return false;">continua offline</a></div>
   </div>
 </div>
+<div id="setup" role="dialog" aria-label="Configura il tuo account">
+  <div class="login-card" style="max-width:420px">
+    <h2 style="font-size:20px;margin-bottom:4px">Benvenuto in HopHop Budget 👋</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:14px">Il tuo account è nuovo: configuralo in pochi secondi.</p>
+    <input id="setupNome" class="cloud-in" placeholder="Il tuo nome">
+    <div style="font-size:12px;color:var(--muted);margin:10px 0 6px">Come vuoi usare l'app?</div>
+    <label class="opt-modo"><input type="radio" name="setupModo" value="semplice" checked><span><b>Semplificata</b><br><span style="font-size:12px;color:var(--muted)">Fatture emesse, spese del mese e conto imposte. Niente bonus né budget.</span></span></label>
+    <label class="opt-modo"><input type="radio" name="setupModo" value="completa"><span><b>Completa</b><br><span style="font-size:12px;color:var(--muted)">Tutte le funzioni: bonus, budget settimanale, proiezioni, ordinario…</span></span></label>
+    <input id="setupPin" type="password" inputmode="numeric" maxlength="8" class="cloud-in" placeholder="PIN (facoltativo)" style="margin-top:6px">
+    <div class="login-err" id="setupErr"></div>
+    <button class="btn" onclick="setupDone()">Inizia</button>
+  </div>
+</div>
 <div id="login">
   <div class="login-card">
     <div class="brand" style="justify-content:center;border:none;padding-bottom:8px"><div class="logo"><svg viewBox="0 0 512 512"><rect width="512" height="512" fill="#2f7ff0"/><circle cx="150" cy="372" r="40" fill="#fff" opacity=".5"/><circle cx="300" cy="248" r="150" fill="#fff"/><text x="300" y="312" font-size="205" font-weight="800" text-anchor="middle" fill="#2f7ff0" font-family="Arial,Helvetica,sans-serif">€</text></svg></div><div style="text-align:left"><b>HopHop Budget</b><span>accesso privato</span></div></div>
@@ -385,7 +402,7 @@ html.light .conto-main{background:linear-gradient(135deg,#f4f8ff,#ffffff);box-sh
     <input type="password" id="pinInput" class="pin-input" placeholder="••••" maxlength="8" inputmode="numeric" autocomplete="off">
     <div class="login-err" id="loginErr"></div>
     <button class="btn" onclick="doLogin()">Accedi</button>
-    <div class="login-hint">PIN predefinito: <b>0000</b> per entrambe (modificabile in Impostazioni)</div>
+    <div class="login-hint" id="loginHint"></div>
   </div>
 </div>
 <div id="app">
@@ -533,8 +550,9 @@ function normalize(p){
     if(!('bonusIniData' in w))nw.bonusIniData=((+nw.bonusProgressivo||0)>0?todayISO():'');
     return nw;
   });}
-  while(st.workspaces.length<2)st.workspaces.push(newWorkspace());
-  st._ts=p._ts||0;
+  while(st.workspaces.length<st.utenti.length)st.workspaces.push(newWorkspace());
+  if(st.workspaces.length>st.utenti.length)st.workspaces=st.workspaces.slice(0,st.utenti.length);
+  st._ts=p._ts||0;if(p._uid)st._uid=p._uid;
   return st;
 }
 function migrateFattura(f){
@@ -659,6 +677,8 @@ function risparmioDeducibile(){const o=calcOrdinarioAnnuo();const marg=(o.aliqMa
 /* ============ AUTH ============ */
 let selectedUser=0;
 function renderLogin(){
+  if(selectedUser>=state.utenti.length)selectedUser=0;
+  {const h=document.getElementById('loginHint');if(h)h.innerHTML=state.utenti.some(u=>u.pin==='0000')?'PIN predefinito: <b>0000</b> (modificabile in Impostazioni)':'';}
   document.getElementById('userChoices').innerHTML=state.utenti.map((u,i)=>{
     const w=state.workspaces[i];const den=w&&w.denominazione?w.denominazione:(w&&w.partitaIva?('P.IVA '+w.partitaIva):'partita IVA');
     return `<div class="user-choice ${i===selectedUser?'sel':''}" onclick="selUser(${i})"><div class="av">${(u.nome||'U').charAt(0).toUpperCase()}</div><div class="nm">${esc(u.nome)}</div><div class="piva">${esc(den)}</div></div>`;
@@ -669,6 +689,12 @@ function doLogin(){const pin=document.getElementById('pinInput').value;const u=s
 function logout(){currentUser=null;view='dashboard';document.getElementById('app').style.display='none';renderLogin();document.getElementById('login').style.display='flex';document.getElementById('pinInput').value='';document.getElementById('loginErr').textContent='';}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('login').style.display!=='none')doLogin();});
 
+/* ============ MODALITÀ (completa / semplificata) ============ */
+const VIEWS_SEMPLICI=['dashboard','fatture','spese','conto','impostazioni'];
+function isSemplice(){const w=(currentUser!=null&&state.workspaces)?state.workspaces[currentUser]:null;return !!(w&&w.modo==='semplice');}
+function applyMode(){const sm=isSemplice();document.body.classList.toggle('mode-semplice',sm);
+  document.querySelectorAll('#nav button,.bottomnav button').forEach(b=>{b.style.display=(sm&&!VIEWS_SEMPLICI.includes(b.dataset.v))?'none':'';});
+  const bl=document.querySelector('.bottomnav button[data-v="dashboard"] .blbl');if(bl)bl.textContent='Home';}
 /* ============ NAV ============ */
 let view='dashboard';
 let dashMeseOffset=0;
@@ -683,6 +709,7 @@ function initApp(){
   document.getElementById('curPiva').textContent=w.denominazione||(w.partitaIva?('P.IVA '+w.partitaIva):'P.IVA da configurare');
   document.getElementById('brandYear').textContent='Anno '+w.anno;
   document.querySelectorAll('#nav button').forEach(b=>{const on=b.dataset.v===view;b.classList.toggle('active',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');b.onclick=()=>goTo(b.dataset.v);});document.querySelectorAll('.bottomnav button').forEach(b=>b.classList.toggle('active',b.dataset.v===view));
+  applyMode();if(isSemplice()&&!VIEWS_SEMPLICI.includes(view))view='dashboard';
   setTopTitle(document.querySelector('#nav button[data-v="'+view+'"]'));
   render();
   setTimeout(()=>{siriLastCheck=0;siriSync();},900);
@@ -690,9 +717,9 @@ function initApp(){
 function toggleDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.toggle('open');if(bd)bd.classList.toggle('open');}
 function closeDrawer(){const s=document.querySelector('.sidebar');const bd=document.getElementById('drawerBackdrop');if(s)s.classList.remove('open');if(bd)bd.classList.remove('open');}
 function setTopTitle(b){const t=document.getElementById('topbarTitle');if(t&&b){const sp=b.querySelector('span:not(.ic)');if(sp)t.textContent=sp.textContent;}}
-function render(){({dashboard:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:renderSpese,programmati:renderProgrammati,bonus:renderBonus,straordinario:renderStraordinario,proiezione:renderProiezione,stat:renderStat,deducibili:renderDeducibili,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
+function render(){const sm=isSemplice();if(sm&&!VIEWS_SEMPLICI.includes(view))view='dashboard';({dashboard:sm?renderHomeSemplice:renderDashboard,fatture:renderFatture,conto:renderConto,ordinario:renderOrdinario,spese:sm?renderSpeseSemplice:renderSpese,programmati:renderProgrammati,bonus:renderBonus,straordinario:renderStraordinario,proiezione:renderProiezione,stat:renderStat,deducibili:renderDeducibili,impostazioni:renderImpostazioni}[view]||renderDashboard)(document.getElementById('view'));}
 function pageHead(title,sub){const w=W();return `<div class="page-head"><div><h2>${title}</h2><p>${sub}</p></div><span class="regime-pill">${esc(state.utenti[currentUser].nome)} · ${w.regimeAttivo} · ${w.anno}</span></div>`;}
-function goTo(v){view=v;document.querySelectorAll('#nav button').forEach(x=>{const on=x.dataset.v===v;x.classList.toggle('active',on);if(on)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current');});document.querySelectorAll('.bottomnav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));setTopTitle(document.querySelector('#nav button[data-v="'+v+'"]'));closeDrawer();render();}
+function goTo(v){if(isSemplice()&&!VIEWS_SEMPLICI.includes(v))v='dashboard';view=v;document.querySelectorAll('#nav button').forEach(x=>{const on=x.dataset.v===v;x.classList.toggle('active',on);if(on)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current');});document.querySelectorAll('.bottomnav button').forEach(x=>x.classList.toggle('active',x.dataset.v===v));setTopTitle(document.querySelector('#nav button[data-v="'+v+'"]'));closeDrawer();render();}
 
 /* ============ AGGREGAZIONI ============ */
 function totali(){
@@ -952,13 +979,13 @@ function renderFatture(el){
   <div class="card" data-cat="income"><div class="card-head"><h3>🧾 Elenco fatture ${w.anno}</h3><button class="btn-sm" onclick="openFattura()">+ Nuova fattura</button></div>
     ${fs.length===0?'<div class="empty">Nessuna fattura. Clicca “Nuova fattura” per iniziare.</div>':`
     <input class="filter-in" placeholder="🔎 Cerca per numero, cliente, descrizione…" oninput="filterRows(this,'fattureTbody')">
-    <table class="rtable"><thead><tr><th>N.</th><th>Data</th><th>Cliente</th><th class="num">Compenso</th><th class="num">Rivalsa</th><th class="num">Totale</th><th class="num">Da versare</th><th class="num">Bonus</th><th>Stato</th><th></th></tr></thead><tbody id="fattureTbody">
+    <table class="rtable"><thead><tr><th>N.</th><th>Data</th><th>Cliente</th><th class="num">Compenso</th><th class="num">Rivalsa</th><th class="num">Totale</th><th class="num">Da versare</th><th class="num only-full">Bonus</th><th>Stato</th><th></th></tr></thead><tbody id="fattureTbody">
     ${fs.map(f=>`<tr><td class="sm-title">🧾 Fattura ${esc(f.numero||'—')} · ${fmtDate(f.data)}</td><td class="sm-hide" data-label="N.">${esc(f.numero||'—')}</td><td class="sm-hide" data-label="Data">${fmtDate(f.data)}</td>
       <td data-label="Cliente">${esc(f.cliente||'—')}${f.descrizione?(' <span style="font-size:11px;color:var(--muted)">· '+esc(f.descrizione)+'</span>'):''}</td>
       <td class="num sm-hide" data-label="Compenso">${eur(f.compenso)}</td><td class="num sm-hide" data-label="Rivalsa" style="color:var(--muted)">${eur(f.rivalsa||0)}</td>
       <td class="num" data-label="Totale"><b>${eur(f.totaleFattura)}</b></td>
       <td class="num" data-label="Da versare" style="color:var(--amber)">${eur(fVersare(f))}</td>
-      <td class="num" data-label="Bonus" style="color:var(--violet)">${eur(f.bonus)}${(fBonusProssimo(f)||fBonusStraord(f))?`<div style="font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">${fBonusProssimo(f)?'↪ '+((f.data||'').slice(0,4)*1+1)+' '+eur(fBonusProssimo(f)):''}${fBonusProssimo(f)&&fBonusStraord(f)?' · ':''}${fBonusStraord(f)?'⭐ '+eur(fBonusStraord(f)):''}</div>`:''}</td>
+      <td class="num only-full" data-label="Bonus" style="color:var(--violet)">${eur(f.bonus)}${(fBonusProssimo(f)||fBonusStraord(f))?`<div style="font-size:10px;color:var(--muted);font-weight:400;white-space:nowrap">${fBonusProssimo(f)?'↪ '+((f.data||'').slice(0,4)*1+1)+' '+eur(fBonusProssimo(f)):''}${fBonusProssimo(f)&&fBonusStraord(f)?' · ':''}${fBonusStraord(f)?'⭐ '+eur(fBonusStraord(f)):''}</div>`:''}</td>
       <td data-label="Stato">${f.incassata?'<span class="tag ok">Incassata</span>':'<span class="tag wait">Emessa</span>'}</td>
       <td data-label="" class="sm-actions" style="white-space:nowrap"><button class="mini-btn" onclick="openFattura('${f.id}')" title="Modifica">✎<span class="btn-txt"> Modifica</span></button><button class="mini-btn del" onclick="delFattura('${f.id}')" title="Elimina">🗑</button></td></tr>`).join('')}
     </tbody></table>`}
@@ -985,6 +1012,7 @@ function openFattura(id){
       </div>
       <h3 style="font-size:13px;margin:18px 0 4px;color:var(--muted)">Composizione fattura e accantonamenti</h3>
       <div class="calc-box" id="calcBox"></div>
+      <div class="only-full">
       <h3 style="font-size:13px;margin:18px 0 4px;color:var(--muted)">📆 Destina il netto ai mesi di gestione ordinaria</h3>
       <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Assegna quote del netto ai mesi da coprire. Ciò che resta diventa <b>bonus</b>.</p>
       <div id="allocList"></div>
@@ -1000,6 +1028,7 @@ function openFattura(id){
         <div class="calc-row"><span class="lbl" id="f_lblAnno">Monte bonus anno in corso</span><b id="f_bAnnoVal" style="color:var(--violet)">€ 0,00</b></div>
         <div class="calc-row"><span class="lbl" id="f_lblProssimo2">Anno successivo</span><span id="f_bProssimoVal">€ 0,00</span></div>
         <div class="calc-row"><span class="lbl">⭐ Fondo straordinario</span><span id="f_bStraordVal">€ 0,00</span></div>
+      </div>
       </div>
     </div>
     <div class="modal-foot"><button class="btn-sm btn-ghost" onclick="closeModal()">Annulla</button><button class="btn-sm" onclick="saveFattura('${f?f.id:''}')">Salva fattura</button></div>`;
@@ -1225,6 +1254,67 @@ function renderSpese(el){
   ${pageHead('Spese settimanali','Spese ordinarie confrontate con il budget settimanale')}
   <div class="card" data-cat="spese"><div class="card-head"><h3>🛒 Registro spese</h3><div><span style="font-size:12px;color:var(--muted);margin-right:10px">Budget/settimana: <b style="color:var(--txt)">${eur(budget)}</b></span><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div></div>
     ${weeklyRegistroHTML()}
+  </div>`;
+}
+
+/* ============ MODALITÀ SEMPLIFICATA: Home e Spese ============ */
+let semMeseOffset=0;
+function semMese(){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()+semMeseOffset);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function semShift(n){semMeseOffset+=n;if(semMeseOffset>0)semMeseOffset=0;render();}
+function semMeseNav(){const m=semMese();return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><button class="mini-btn" onclick="semShift(-1)" aria-label="Mese precedente">‹</button><b style="font-size:15px;min-width:150px;text-align:center">${esc(monthLabel(m))}</b><button class="mini-btn" onclick="semShift(1)" aria-label="Mese successivo" ${semMeseOffset>=0?'disabled style="opacity:.35"':''}>›</button>${semMeseOffset<0?'<button class="mini-btn" onclick="semMeseOffset=0;render()">Oggi</button>':''}</div>`;}
+function semFattureMese(m){return (W().fatture||[]).filter(f=>(f.data||'').slice(0,7)===m);}
+function semSpeseMese(m){return (W().spese||[]).filter(s=>(s.data||'').slice(0,7)===m);}
+function renderHomeSemplice(el){
+  const w=W();const m=semMese();const y=+m.slice(0,4);
+  const fm=semFattureMese(m);const sm=semSpeseMese(m);
+  const fatt=fm.reduce((s,f)=>s+(+f.compenso||0),0);const netto=fm.reduce((s,f)=>s+(+f.netto||0),0);const accImp=fm.reduce((s,f)=>s+fVersare(f),0);
+  const spese=sm.reduce((s,x)=>s+(+x.importo||0),0);const saldo=netto-spese;
+  const fa=(w.fatture||[]).filter(f=>(f.data||'').slice(0,4)===String(y));const sa=(w.spese||[]).filter(x=>(x.data||'').slice(0,4)===String(y));
+  const fattA=fa.reduce((s,f)=>s+(+f.compenso||0),0),nettoA=fa.reduce((s,f)=>s+(+f.netto||0),0),speseA=sa.reduce((s,x)=>s+(+x.importo||0),0);
+  let conto=0;try{conto=contoSaldo();}catch(e){}
+  const lastM=(y===new Date().getFullYear())?new Date().getMonth()+1:12;
+  const righe=[];for(let i=lastM;i>=1;i--){const k=y+'-'+String(i).padStart(2,'0');const n=semFattureMese(k).reduce((s,f)=>s+(+f.netto||0),0);const sp=semSpeseMese(k).reduce((s,x)=>s+(+x.importo||0),0);if(n||sp||k===m)righe.push({k,n,sp});}
+  const ultime=(w.spese||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).slice(0,5);
+  el.innerHTML=`
+  ${pageHead('Home','Entrate, spese e imposte in un colpo d\'occhio')}
+  ${semMeseNav()}
+  <div class="kpi-grid">
+    <div class="kpi green"><div class="lbl">Entrate nette del mese</div><div class="val" style="font-size:22px;color:var(--green)">${eur(netto)}</div><div class="sub">fatturato ${eur(fatt)} · ${num(fm.length)} fatture</div></div>
+    <div class="kpi"><div class="lbl">Spese del mese</div><div class="val" style="font-size:22px;color:var(--red)">${eur(spese)}</div><div class="sub">${num(sm.length)} spese registrate</div></div>
+    <div class="kpi accent"><div class="lbl">Saldo del mese</div><div class="val" style="font-size:22px;color:${saldo<0?'var(--red)':'var(--green)'}">${saldo<0?'−':''}${eur(Math.abs(saldo))}</div><div class="sub">entrate nette − spese</div></div>
+    <div class="kpi"><div class="lbl">Da accantonare per imposte</div><div class="val" style="font-size:22px;color:var(--amber)">${eur(accImp)}</div><div class="sub">dalle fatture del mese</div></div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"><button class="btn-sm" onclick="openFattura()">🧾 + Fattura</button><button class="btn-sm" onclick="openSpesa()">🛒 + Spesa</button><button class="btn-sm btn-ghost" onclick="goTo('conto')">🏦 Conto imposte: <b>${eur(conto)}</b></button></div>
+  <div class="card" data-cat="income"><h3>📅 Anno ${y}</h3>
+    <div class="desc">Fatturato ${eur(fattA)} · entrate nette ${eur(nettoA)} · spese ${eur(speseA)} · saldo <b style="color:${nettoA-speseA<0?'var(--red)':'var(--green)'}">${eur(nettoA-speseA)}</b></div>
+    ${righe.length?`<table class="rtable"><thead><tr><th>Mese</th><th class="num">Entrate nette</th><th class="num">Spese</th><th class="num">Saldo</th></tr></thead><tbody>
+    ${righe.map(r=>`<tr${r.k===m?' style="background:var(--panel2)"':''}><td data-label="Mese">${esc(monthLabel(r.k))}</td><td class="num" data-label="Entrate nette" style="color:var(--green)">${eur(r.n)}</td><td class="num" data-label="Spese" style="color:var(--red)">${eur(r.sp)}</td><td class="num" data-label="Saldo"><b style="color:${r.n-r.sp<0?'var(--red)':'var(--green)'}">${eur(r.n-r.sp)}</b></td></tr>`).join('')}
+    </tbody></table>`:'<div class="empty">Ancora nessun movimento quest\'anno.</div>'}
+  </div>
+  <div class="card" data-cat="spese"><div class="card-head"><h3>🛒 Ultime spese</h3><button class="btn-sm btn-ghost" onclick="goTo('spese')">Vedi tutte</button></div>
+    ${ultime.length?`<table class="rtable"><tbody>${ultime.map(x=>`<tr onclick="openSpesa('${x.id}')" style="cursor:pointer"><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Spesa">${catEmoji(x.categoria)} <b>${esc(x.descrizione||x.categoria||'—')}</b></td><td class="num" data-label="Importo">${eur(x.importo)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Nessuna spesa registrata.</div>'}
+  </div>`;
+}
+function renderSpeseSemplice(el){
+  const m=semMese();const sm=semSpeseMese(m).sort((a,b)=>(b.data||'').localeCompare(a.data||''));const tot=sm.reduce((s,x)=>s+(+x.importo||0),0);
+  const prev=(()=>{const d=new Date(+m.slice(0,4),+m.slice(5,7)-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();const totPrev=semSpeseMese(prev).reduce((s,x)=>s+(+x.importo||0),0);
+  const cat={};sm.forEach(x=>{const c=x.categoria||'Altro';cat[c]=(cat[c]||0)+(+x.importo||0);});
+  const cats=Object.entries(cat).map(([label,value])=>({label:(catEmoji(label)+' '+label).slice(0,24),value})).sort((a,b)=>b.value-a.value);
+  const diff=tot-totPrev;
+  el.innerHTML=`
+  ${pageHead('Spese','Le spese del mese, per categoria')}
+  ${semMeseNav()}
+  <div class="kpi-grid">
+    <div class="kpi"><div class="lbl">Totale ${esc(monthLabel(m).toLowerCase())}</div><div class="val" style="font-size:22px;color:var(--red)">${eur(tot)}</div><div class="sub">${num(sm.length)} spese</div></div>
+    <div class="kpi"><div class="lbl">Rispetto al mese prima</div><div class="val" style="font-size:22px;color:${diff>0?'var(--red)':'var(--green)'}">${diff>0?'+':diff<0?'−':''}${eur(Math.abs(diff))}</div><div class="sub">${esc(monthLabel(prev).toLowerCase())}: ${eur(totPrev)}</div></div>
+  </div>
+  ${cats.length?`<div class="card" data-cat="spese"><h3>📊 Per categoria</h3>${svgHBars(cats,{fmt:eur})}</div>`:''}
+  <div class="card" data-cat="spese"><div class="card-head"><h3>🛒 Elenco spese</h3><button class="btn-sm" onclick="openSpesa()">+ Nuova spesa</button></div>
+    ${sm.length?`<table class="rtable"><thead><tr><th>Data</th><th>Descrizione</th><th>Categoria</th><th class="num">Importo</th><th></th></tr></thead><tbody>
+    ${sm.map(x=>`<tr><td data-label="Data">${fmtDate(x.data)}</td><td data-label="Descrizione"><b>${esc(x.descrizione||'—')}</b></td><td data-label="Categoria">${catEmoji(x.categoria)} ${esc(x.categoria||'Altro')}</td><td class="num" data-label="Importo"><b>${eur(x.importo)}</b></td>
+      <td data-label="" style="white-space:nowrap"><button class="mini-btn" onclick="openSpesa('${x.id}')" title="Modifica">✎</button><button class="mini-btn del" onclick="delSpesa('${x.id}')" title="Elimina">🗑</button></td></tr>`).join('')}
+    <tr><td colspan="3"><b>Totale</b></td><td class="num"><b>${eur(tot)}</b></td><td></td></tr>
+    </tbody></table>`:`<div class="empty">Nessuna spesa in ${esc(monthLabel(m).toLowerCase())}.</div>`}
   </div>`;
 }
 
@@ -1484,7 +1574,7 @@ function openSpesa(editId){const ex=editId?(W().spese||[]).find(s=>s.id===editId
     <div class="fld"><label>Importo (€)</label><input id="s_imp" type="number" inputmode="decimal" step="0.01" placeholder="0,00" value="${ex?ex.importo:''}"></div>
     <div class="fld" style="grid-column:1/-1"><label>Descrizione</label><input id="s_desc" placeholder="es. benzina, pranzo, cancelleria…" value="${ex?esc(ex.descrizione||''):''}" oninput="autoCatFill('s_desc','s_cat');autoTipoFill()"></div>
     <div class="fld" style="grid-column:1/-1"><label>Categoria <span style="color:var(--muted);font-weight:400">· auto dalla descrizione</span></label><select id="s_cat" ${ex&&ex.categoria?'data-manual="1"':''} onchange="catManual(this);autoTipoFill()">${catOptionsHTML(ex?ex.categoria:'')}</select></div>
-    <div class="fld" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
+    <div class="fld only-full" style="grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px;margin-top:2px">
       <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-weight:600"><input type="checkbox" id="s_fatt" ${ex&&ex.fatturata?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)" onchange="toggleFatt(this.checked)"> Spesa fatturata <span style="font-weight:400;color:var(--muted)">· deducibile in ordinario</span></label>
       <div style="font-size:11px;color:var(--muted);margin-top:5px">Nel forfettario i costi non abbattono le imposte: serve per il regime ordinario dal 2027. Attiva solo se ti serve per la deducibilità.</div>
     </div>
@@ -1546,6 +1636,12 @@ function voiceHandle(txt){
 }
 let assistantChoiceData=null;
 function assistantRegister(r){
+  if(isSemplice()){ // semplificata: niente scelta del salvadanaio, è una spesa e basta
+    const cat=r.categoria||categorizza(r.descrizione||'');const id=uid();const w=W();
+    w.spese.push({id,data:r.data||todayISO(),descrizione:r.descrizione||'',categoria:cat,importo:r.importo,fatturata:false,tipoCosto:tipoCostoDaCategoria(cat),deduzionePerc:0});
+    save();render();showUndo('✅ '+eur(r.importo)+' · '+(r.descrizione||cat)+' registrata',()=>{const i=W().spese.findIndex(s=>s.id===id);if(i>=0){W().spese.splice(i,1);save();render();toast('Annullata');}});
+    if(typeof siriNext==='function')setTimeout(siriNext,350);return;
+  }
   // chiede prima dove registrarla: spesa settimanale o dal bonus
   assistantChoiceData={importo:r.importo,descrizione:r.descrizione||'',categoria:r.categoria||categorizza(r.descrizione||''),data:r.data||todayISO()};
   const cat=assistantChoiceData.categoria;const quando=assistantChoiceData.data===todayISO()?'oggi':fmtDate(assistantChoiceData.data);
@@ -1560,6 +1656,7 @@ function assistantRegister(r){
 function assistantChoiceCancel(){document.getElementById('asstChoice').classList.remove('open');document.getElementById('asstChoiceBack').classList.remove('open');assistantChoiceData=null;vbIdle();if(typeof siriNext==='function')setTimeout(siriNext,350);}
 /* Se il budget settimanale non basta, la parte in eccesso va sul monte bonus */
 function budgetSplitInfo(data,importo){
+  if(isSemplice())return{overflow:false};
   const w=W();if(!(w.budgetSettimanale>0))return{overflow:false};
   const wk=weekKey(data);const spesoWk=(w.spese||[]).filter(s=>weekKey(s.data)===wk).reduce((a,s)=>a+s.importo,0);
   const remaining=Math.max(0,(w.budgetSettimanale||0)-spesoWk);
@@ -1640,8 +1737,8 @@ function openQuickAdd(){
     <div class="modal-body">
       <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Cosa vuoi registrare?</p>
       <div style="display:flex;flex-direction:column;gap:12px">
-        <button class="btn-sm" style="padding:16px;font-size:15px;text-align:left" onclick="closeModal();openSpesa()">🛒&nbsp;&nbsp;Spesa settimanale</button>
-        <button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--violet)" onclick="closeModal();openPrelievoBonus()">🎁&nbsp;&nbsp;Spesa dal bonus (prelievo)</button>
+        <button class="btn-sm" style="padding:16px;font-size:15px;text-align:left" onclick="closeModal();openSpesa()">🛒&nbsp;&nbsp;${isSemplice()?'Spesa':'Spesa settimanale'}</button>
+        ${isSemplice()?`<button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--green)" onclick="closeModal();openFattura()">🧾&nbsp;&nbsp;Fattura emessa</button>`:`<button class="btn-sm" style="padding:16px;font-size:15px;text-align:left;background:var(--violet)" onclick="closeModal();openPrelievoBonus()">🎁&nbsp;&nbsp;Spesa dal bonus (prelievo)</button>`}
       </div>
     </div>`;
   document.getElementById('overlay').classList.add('show');
@@ -2032,11 +2129,12 @@ function renderImpostazioni(el){
   const w=W();const f=w.forfettario,o=w.ordinario;const fo=w.fiscoOrd;const ded=w.deduzioni||[];const fscale=localStorage.getItem(FSKEY)||'0';
   el.innerHTML=`
   ${pageHead('Impostazioni','Dati P.IVA, percentuali fiscali, ordinario, budget e utenze')}
-  <div class="settings-note">Queste impostazioni valgono <b>solo per l'utenza corrente</b> (${esc(state.utenti[currentUser].nome)} — una partita IVA). L'altra utenza è del tutto separata.</div>
+  <div class="settings-note">Queste impostazioni valgono <b>solo per l'utenza corrente</b> (${esc(state.utenti[currentUser].nome)} — una partita IVA). ${state.utenti.length>1?"Gli altri profili sono del tutto separati.":''}</div>
   <div class="card" data-cat="info"><h3>🏢 Dati partita IVA</h3>
     <div class="form-grid">
       <div class="fld"><label>Denominazione / nome</label><input id="set_den" value="${esc(w.denominazione)}" placeholder="es. Arch. Luca"></div>
       <div class="fld"><label>Partita IVA</label><input id="set_piva" value="${esc(w.partitaIva)}" placeholder="es. 01234567890"></div>
+      <div class="fld" style="grid-column:1/-1"><label>Modalità app</label><select id="set_modo"><option value="completa" ${w.modo!=='semplice'?'selected':''}>Completa — bonus, budget, proiezioni, ordinario</option><option value="semplice" ${w.modo==='semplice'?'selected':''}>Semplificata — fatture, spese del mese, conto imposte</option></select></div>
     </div>
   </div>
   <div class="card" data-cat="tax"><h3>⚙︎ Regime, anno, ordinario</h3>
@@ -2045,9 +2143,9 @@ function renderImpostazioni(el){
       <div class="fld"><label>Anno di lavoro</label><input id="set_anno" type="number" value="${w.anno}"></div>
       <div class="fld"><label>Rivalsa Inarcassa in fattura (%)</label><input id="set_rivalsa" type="number" step="0.1" value="${w.rivalsaPerc}"></div>
       <div class="fld"><label>Tetto forfettario (€)</label><input id="set_tetto" type="number" value="${w.tettoForfettario}"></div>
-      <div class="fld"><label>Fabbisogno ordinario mensile (€)</label><input id="set_fab" type="number" value="${w.fabbisognoMensile}"></div>
-      <div class="fld"><label>Riporto ordinario iniziale (€)</label><input id="set_rip" type="number" value="${w.riportoOrdinario}"></div>
-      <div class="fld"><label>Budget settimanale spese (€)</label><input id="set_budget" type="number" value="${w.budgetSettimanale}"></div>
+      <div class="fld only-full"><label>Fabbisogno ordinario mensile (€)</label><input id="set_fab" type="number" value="${w.fabbisognoMensile}"></div>
+      <div class="fld only-full"><label>Riporto ordinario iniziale (€)</label><input id="set_rip" type="number" value="${w.riportoOrdinario}"></div>
+      <div class="fld only-full"><label>Budget settimanale spese (€)</label><input id="set_budget" type="number" value="${w.budgetSettimanale}"></div>
     </div>
   </div>
   <div class="card" data-cat="tax"><h3>🟦 Forfettario — percentuali (metodo unico sul reddito)</h3><div class="desc">Imposte = reddito (compenso×coefficiente) × % unica, che ingloba imposta sostitutiva e Inarcassa. Es. 30% ≈ sostitutiva 15% + Inarcassa.</div>
@@ -2057,14 +2155,14 @@ function renderImpostazioni(el){
       <div class="fld"><label>di cui imposta sostitutiva (%)</label><input id="for_sost" type="number" step="0.1" value="${f.aliquotaSostitutiva}"></div>
     </div>
   </div>
-  <div class="card" data-cat="tax"><h3>🟪 Ordinario — percentuali (anno prossimo)</h3><div class="desc">Voci separate; tutte confluiscono nel conto imposte</div>
+  <div class="card only-full" data-cat="tax"><h3>🟪 Ordinario — percentuali (anno prossimo)</h3><div class="desc">Voci separate; tutte confluiscono nel conto imposte</div>
     <div class="form-grid">
       <div class="fld"><label>Imposte / IRPEF (%)</label><input id="ord_imp" type="number" step="0.1" value="${o.aliquotaImposte}"></div>
       <div class="fld"><label>Contributi (%)</label><input id="ord_con" type="number" step="0.1" value="${o.contributi}"></div>
       <div class="fld"><label>IVA (%)</label><input id="ord_iva" type="number" step="0.1" value="${o.iva}"></div>
     </div>
   </div>
-  <div class="card" data-cat="tax"><h3>🧾 Fiscalità ordinaria (dal 2027) — IRPEF e Inarcassa</h3>
+  <div class="card only-full" data-cat="tax"><h3>🧾 Fiscalità ordinaria (dal 2027) — IRPEF e Inarcassa</h3>
     <div class="desc">Aliquote usate nella sezione <b>Deducibilità</b> per la stima dell'ordinario. Default correnti (architetto, Inarcassa) — <b>modificali secondo la tua situazione; sono una stima, non un calcolo definitivo</b>.</div>
     <div style="font-weight:600;font-size:13px;margin:4px 0 8px">Scaglioni IRPEF</div>
     <div id="scagList">${(fo.scaglioni||[]).map((s,i)=>scagRowHTML(s,i,(fo.scaglioni||[]).length)).join('')}</div>
@@ -2080,7 +2178,7 @@ function renderImpostazioni(el){
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:8px">Addizionali già impostate per residenza a <b>Torino</b> (valori 2026). Le addizionali sono calcolate a scaglioni progressivi sull'imponibile IRPEF. Se cambi residenza, aggiorna qui gli scaglioni.</div>
   </div>
-  <div class="card" data-cat="tax"><h3>🏷️ Deducibilità costi — % per tipologia</h3><div class="desc">Percentuale deducibile di default per tipologia (art. 54 TUIR): auto/carburante 20%, telefonia 80%, vitto e alloggio 75%, formazione e beni strumentali 100%. Proposta quando registri una spesa, sovrascrivibile sulla singola voce.<br><span style="color:var(--amber)">Attenzione:</span> esistono <b>limiti complessivi annui</b> che questo calcolo per-voce non applica automaticamente — vitto/alloggio entro il 2% dei compensi, rappresentanza entro l'1%, formazione entro 10.000 €, auto con tetto di 18.075,99 €. Tienine conto nella stima.</div>
+  <div class="card only-full" data-cat="tax"><h3>🏷️ Deducibilità costi — % per tipologia</h3><div class="desc">Percentuale deducibile di default per tipologia (art. 54 TUIR): auto/carburante 20%, telefonia 80%, vitto e alloggio 75%, formazione e beni strumentali 100%. Proposta quando registri una spesa, sovrascrivibile sulla singola voce.<br><span style="color:var(--amber)">Attenzione:</span> esistono <b>limiti complessivi annui</b> che questo calcolo per-voce non applica automaticamente — vitto/alloggio entro il 2% dei compensi, rappresentanza entro l'1%, formazione entro 10.000 €, auto con tetto di 18.075,99 €. Tienine conto nella stima.</div>
     <div id="dedList">${ded.map((d,i)=>dedRowHTML(d,i)).join('')}</div>
     <button class="btn-sm btn-ghost" onclick="addDedRow()">+ Aggiungi tipologia</button>
   </div>
@@ -2092,19 +2190,17 @@ function renderImpostazioni(el){
       <button type="button" data-fs="2" aria-pressed="${fscale==='2'?'true':'false'}" onclick="setFontScale('2')" style="font-size:18px">A++</button>
     </div>
   </div>
-  <div class="card" data-cat="plan"><h3>🧩 Composizione fabbisogno mensile</h3><div class="desc">Le voci in cui si suddividono i ${eur(w.fabbisognoMensile)} mensili. Tipo "bonus" = va nei salvadanai; "→ settimanali" = alimenta il budget settimanale.<br><b>Le modifiche non sono retroattive:</b> se cambi un importo qui vale dal mese in corso in poi. Con 📅 imposti variazioni future (es. da novembre 150 €, da gennaio 300 €) e vedi lo storico.</div>
+  <div class="card only-full" data-cat="plan"><h3>🧩 Composizione fabbisogno mensile</h3><div class="desc">Le voci in cui si suddividono i ${eur(w.fabbisognoMensile)} mensili. Tipo "bonus" = va nei salvadanai; "→ settimanali" = alimenta il budget settimanale.<br><b>Le modifiche non sono retroattive:</b> se cambi un importo qui vale dal mese in corso in poi. Con 📅 imposti variazioni future (es. da novembre 150 €, da gennaio 300 €) e vedi lo storico.</div>
     <div id="smList">${(w.speseMensili||[]).map(x=>smRowHTML(x)).join('')}</div>
     <button class="btn-sm btn-ghost" onclick="addSmRow()">+ Aggiungi voce</button>
   </div>
-  <div class="card" data-cat="info"><h3>👤 Utenze di accesso</h3><div class="desc">Due utenze, una per ciascuna partita IVA.</div>
-    <div class="form-grid">
-      <div class="fld"><label>Utenza 1 — nome</label><input id="u0_nome" value="${esc(state.utenti[0].nome)}"></div>
-      <div class="fld"><label>Utenza 1 — PIN</label><div style="display:flex;gap:6px"><input id="u0_pin" type="password" inputmode="numeric" value="${esc(state.utenti[0].pin)}" style="flex:1"><button type="button" class="mini-btn" onclick="togglePwd('u0_pin')" aria-label="Mostra PIN">👁</button></div></div>
-      <div class="fld"><label>Utenza 2 — nome</label><input id="u1_nome" value="${esc(state.utenti[1].nome)}"></div>
-      <div class="fld"><label>Utenza 2 — PIN</label><div style="display:flex;gap:6px"><input id="u1_pin" type="password" inputmode="numeric" value="${esc(state.utenti[1].pin)}" style="flex:1"><button type="button" class="mini-btn" onclick="togglePwd('u1_pin')" aria-label="Mostra PIN">👁</button></div></div>
-    </div>
+  <div class="card" data-cat="info"><h3>👤 Profili di accesso</h3><div class="desc">Ogni profilo è una partita IVA separata con il suo PIN. Con un solo profilo puoi lasciare il PIN vuoto per entrare direttamente.</div>
+    ${state.utenti.map((u,i)=>`<div class="form-grid" data-prof="${i}" style="margin-bottom:10px">
+      <div class="fld"><label>Profilo ${i+1} — nome${i===currentUser?' (in uso)':''}</label><input data-role="pnome" value="${esc(u.nome)}"></div>
+      <div class="fld"><label>Profilo ${i+1} — PIN</label><div style="display:flex;gap:6px"><input id="pp_${i}" data-role="ppin" type="password" inputmode="numeric" value="${esc(u.pin)}" style="flex:1"><button type="button" class="mini-btn" onclick="togglePwd('pp_${i}')" aria-label="Mostra PIN">👁</button>${i!==currentUser?`<button type="button" class="mini-btn del" onclick="delProfilo(${i})" title="Elimina questo profilo" aria-label="Elimina profilo">🗑</button>`:''}</div></div>
+    </div>`).join('')}
   </div>
-  <div class="card" data-cat="spese"><h3>🎙️ Siri — registra spese a voce</h3><div id="siriCard"></div></div>
+  <div class="card only-full" data-cat="spese"><h3>🎙️ Siri — registra spese a voce</h3><div id="siriCard"></div></div>
   <div style="display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap">
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn-sm" onclick="saveSettings()">💾 Salva impostazioni</button>
@@ -2212,12 +2308,19 @@ function saveSettings(){
   const dedRows=[...document.querySelectorAll('#dedList [data-ded]')];
   w.deduzioni=dedRows.map(r=>{const label=r.querySelector('[data-role=label]').value.trim();let key=r.dataset.key||(label.toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,14)||uid());return {key,label,perc:Math.max(0,Math.min(100,+r.querySelector('[data-role=perc]').value||0))};}).filter(x=>x.label);
   if(!w.deduzioni.length)w.deduzioni=newWorkspace().deduzioni;
-  state.utenti=[{nome:document.getElementById('u0_nome').value.trim()||'Utenza 1',pin:document.getElementById('u0_pin').value||'0000'},{nome:document.getElementById('u1_nome').value.trim()||'Utenza 2',pin:document.getElementById('u1_pin').value||'0000'}];
+  {const rows=[...document.querySelectorAll('[data-prof]')];if(rows.length===state.utenti.length)state.utenti=rows.map((r,i)=>({nome:r.querySelector('[data-role=pnome]').value.trim()||('Profilo '+(i+1)),pin:(r.querySelector('[data-role=ppin]').value||'').trim()}));}
+  {const m=document.getElementById('set_modo');if(m)w.modo=m.value==='semplice'?'semplice':'completa';}
   save();
   document.getElementById('brandYear').textContent='Anno '+w.anno;
   document.getElementById('curName').textContent=state.utenti[currentUser].nome;
   document.getElementById('curPiva').textContent=w.denominazione||(w.partitaIva?('P.IVA '+w.partitaIva):'P.IVA da configurare');
-  toast('Impostazioni salvate');render();
+  applyMode();toast('Impostazioni salvate');render();
+}
+function delProfilo(i){
+  if(i===currentUser||!state.utenti[i]||state.utenti.length<2)return;const nome=state.utenti[i].nome;
+  if(!confirm('Eliminare il profilo "'+nome+'" con TUTTI i suoi dati (fatture, spese, conto imposte)?\n\nNon si può annullare. Se vuoi tenerne una copia, prima usa "Esporta backup".'))return;
+  state.utenti.splice(i,1);state.workspaces.splice(i,1);if(i<currentUser)currentUser--;selectedUser=0;
+  save();render();toast('Profilo "'+nome+'" eliminato');
 }
 function exportData(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='backup-gestione-piva-'+todayISO()+'.json';a.click();}
 function togglePwd(id){const el=document.getElementById(id);if(el)el.type=(el.type==='password'?'text':'password');}
@@ -2267,8 +2370,21 @@ async function boot(){
   }catch(e){console.warn(e);startLocal();}
 }
 function showCloudLogin(){document.getElementById('login').style.display='none';document.getElementById('app').style.display='none';document.getElementById('cloudlogin').style.display='flex';setTimeout(()=>{const e=document.getElementById('cloudEmail');if(e)e.focus();},60);}
-function afterCloud(){document.getElementById('cloudlogin').style.display='none';renderLogin();document.getElementById('login').style.display='flex';}
-function startLocal(){cloudMode=false;document.getElementById('cloudlogin').style.display='none';renderLogin();document.getElementById('login').style.display='flex';}
+function afterCloud(){document.getElementById('cloudlogin').style.display='none';if(needOnboarding){showSetup();return;}enterOrLogin();}
+function enterOrLogin(){if(state.utenti.length===1&&!state.utenti[0].pin){currentUser=0;selectedUser=0;document.getElementById('login').style.display='none';document.getElementById('app').style.display='block';initApp();return;}renderLogin();document.getElementById('login').style.display='flex';}
+let needOnboarding=false;
+function showSetup(){document.getElementById('login').style.display='none';document.getElementById('app').style.display='none';document.getElementById('setup').style.display='flex';setTimeout(()=>{const e=document.getElementById('setupNome');if(e)e.focus();},60);}
+async function setupDone(){
+  const nome=(document.getElementById('setupNome').value||'').trim();if(!nome){document.getElementById('setupErr').textContent='Scrivi il tuo nome';return;}
+  const modo=(document.querySelector('input[name=setupModo]:checked')||{}).value||'semplice';const pin=(document.getElementById('setupPin').value||'').trim();
+  const ws=newWorkspace();ws.anno=new Date().getFullYear();ws.denominazione=nome;ws.modo=modo;ws.bonusProgressivo=0;ws.bonusIniData=todayISO();
+  if(modo==='semplice'){ws.speseMensili=[];ws.budgetSettimanale=0;ws.fabbisognoMensile=0;}
+  state={utenti:[{nome,pin}],workspaces:[ws]};state._uid=cloudUser?cloudUser.id:undefined;state._ts=Date.now();
+  try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}
+  needOnboarding=false;await pushCloud(true);
+  document.getElementById('setup').style.display='none';enterOrLogin();
+}
+function startLocal(){cloudMode=false;document.getElementById('cloudlogin').style.display='none';enterOrLogin();}
 async function cloudSignIn(){
   const email=(document.getElementById('cloudEmail').value||'').trim();const pass=document.getElementById('cloudPass').value||'';
   const err=document.getElementById('cloudErr');if(!email||!pass){err.textContent='Inserisci email e password';return;}
@@ -2291,18 +2407,22 @@ async function cloudSignUp(){
 }
 function traduciErr(m){m=m||'';if(/invalid login/i.test(m))return 'Email o password errati';if(/already registered/i.test(m))return 'Email già registrata: premi Accedi';if(/confirm/i.test(m))return 'Conferma l\'email prima di accedere';return m;}
 async function loadCloud(){
-  cloudMode=true;
+  cloudMode=true;needOnboarding=false;
   try{const {data,error}=await sb.from('app_state').select('data').eq('user_id',cloudUser.id).maybeSingle();
     if(error){console.warn(error);}
+    const localMine=state._uid===cloudUser.id;const localLegacy=!state._uid;
     if(data&&data.data&&data.data.workspaces){
-      const cloudTs=+data.data._ts||0;const localTs=+state._ts||0;
-      if(cloudTs>=localTs){ // cloud è più recente (o pari): adottalo
-        state=normalize(data.data);localStorage.setItem(KEY,JSON.stringify(state));setSync('ok','sincronizzato'+syncTime());
-      }else{ // dati locali più recenti (modifiche offline): non sovrascrivere, ripubblica il locale
-        setSync('off','carico modifiche locali…');await pushCloud(true);
+      const cloudTs=+data.data._ts||0;const localTs=(localMine||localLegacy)?(+state._ts||0):0; // dati locali di un altro account: ignorati
+      if(cloudTs>=localTs){ // cloud più recente (o pari): adottalo
+        state=normalize(data.data);state._uid=cloudUser.id;localStorage.setItem(KEY,JSON.stringify(state));setSync('ok','sincronizzato'+syncTime());
+      }else{ // modifiche offline di questo account: ripubblica il locale
+        state._uid=cloudUser.id;setSync('off','carico modifiche locali…');await pushCloud(true);
       }
     }
-    else{await pushCloud(true);}
+    else if(!error){
+      if(localMine){await pushCloud(true);} // creato offline da questo stesso account
+      else{needOnboarding=true;} // account nuovo: configurazione pulita, mai i dati di un altro
+    }
   }catch(e){console.warn(e);}
 }
 function syncTime(){try{const d=new Date();return ' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}catch(e){return '';}}
@@ -2313,7 +2433,7 @@ async function pushCloud(silent){
   }catch(e){setSync('err','offline');}
 }
 function scheduleCloud(){if(!sb||!cloudUser)return;setSync('off','salvataggio…');clearTimeout(saveTimer);saveTimer=setTimeout(()=>pushCloud(),1200);}
-async function cloudSignOut(){if(sb){try{await sb.auth.signOut();}catch(e){}}cloudUser=null;currentUser=null;cloudMode=false;showCloudLogin();}
+async function cloudSignOut(){try{await pushCloud(true);}catch(e){}if(sb){try{await sb.auth.signOut();}catch(e){}}try{localStorage.removeItem(KEY);}catch(e){}state=defaults();cloudUser=null;currentUser=null;cloudMode=false;showCloudLogin();}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('cloudlogin').style.display!=='none')cloudSignIn();});
 
 /* ============================================================
@@ -2333,7 +2453,7 @@ function siriParse(row){
   return r;
 }
 function siriApply(row){
-  const r=siriParse(row);const dest=siriDest(row.dest);
+  const r=siriParse(row);const dest=isSemplice()?'spesa':siriDest(row.dest);
   if(!(r.importo>0)||!r.descrizione)return {ok:false,testo:row.testo};
   const cat=r.categoria||categorizza(r.descrizione);const w=W();
   if(dest==='chiedi'){siriQueue.push({importo:r.importo,descrizione:r.descrizione,categoria:cat,data:r.data});return {ok:true,r,dest,nota:'ti chiedo dove registrarla'};}
